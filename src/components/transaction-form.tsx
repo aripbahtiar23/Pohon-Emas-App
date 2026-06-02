@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import {
 } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 
@@ -218,6 +222,61 @@ function stockLabel(t: Transaction) {
   return parts.filter(Boolean).join(" · ");
 }
 
+/* ── Searchable stock combobox ─────────────────────────────────────────────── */
+function StockCombobox({ value, options, onChange }: {
+  value: string;
+  options: Transaction[];
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((t) => t.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full flex items-center justify-between px-3 h-10 rounded-md border border-input bg-background text-sm transition-colors hover:bg-muted/50",
+            !selected && "text-muted-foreground"
+          )}
+        >
+          <span className="truncate">{selected ? stockLabel(selected) : "— Pilih barang dari stok —"}</span>
+          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground ml-2" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0" align="start" style={{ width: "var(--radix-popover-trigger-width)" }}>
+        <Command>
+          <CommandInput placeholder="Cari produk, seri, karat..." />
+          <CommandList>
+            <CommandEmpty>Tidak ditemukan.</CommandEmpty>
+            {options.map((t) => (
+              <CommandItem
+                key={t.id}
+                value={`${stockLabel(t)} ${t.noSeri ?? ""} ${t.kode ?? ""} ${t.asalBarang ?? ""}`}
+                onSelect={() => { onChange(t.id); setOpen(false); }}
+                className="cursor-pointer"
+              >
+                <Check className={cn("size-4 mr-2 shrink-0", value === t.id ? "opacity-100" : "opacity-0")} />
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{stockLabel(t)}</div>
+                  {(t.asalBarang || t.noSeri) && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {[t.asalBarang && `Dari: ${t.asalBarang}`, t.noSeri && `SN ${t.noSeri}`].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 type SaleItem = { rowId: string; selectedStockId: string; harga: string };
 const newRowId = () => Math.random().toString(36).slice(2);
 const emptyRow = (): SaleItem => ({ rowId: newRowId(), selectedStockId: "", harga: "" });
@@ -317,17 +376,12 @@ function SaleForm() {
                   )}
                 </div>
 
-                {/* Stock selector */}
-                <Select value={item.selectedStockId} onValueChange={(v) => updateItem(item.rowId, { selectedStockId: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="— Pilih barang dari stok —" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {available.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{stockLabel(t)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Stock selector with search */}
+                <StockCombobox
+                  value={item.selectedStockId}
+                  options={available}
+                  onChange={(id) => updateItem(item.rowId, { selectedStockId: id })}
+                />
 
                 {/* Info barang compact */}
                 {sel && (
