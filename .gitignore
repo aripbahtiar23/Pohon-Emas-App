@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+public/assets/
+public/index.html
+
 # Environment variables
 .env
 .env.local
