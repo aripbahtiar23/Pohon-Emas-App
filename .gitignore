@@ -20,8 +20,6 @@ dist-ssr
 .wrangler/
 .dev.vars
 
-public/
-
 # Environment variables
 .env
 .env.local

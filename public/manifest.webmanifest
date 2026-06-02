@@ -1,0 +1,25 @@
+{
+  "name": "Pohon Emas",
+  "short_name": "Pohon Emas",
+  "description": "Aplikasi pembukuan reseller emas logam mulia & perhiasan",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5ECD7",
+  "theme_color": "#5C3D1E",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business"]
+}
