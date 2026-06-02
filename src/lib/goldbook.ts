@@ -27,6 +27,7 @@ export interface Transaction {
   asalBarang?: string;
   sourceId?: string;
   pembeli?: string;
+  batchId?: string;
 }
 
 // ── DB row ↔ app type mappers ─────────────────────────────────────────────────
@@ -49,6 +50,7 @@ function dbToTx(row: any): Transaction {
     asalBarang:  row.asal_barang   ?? undefined,
     sourceId:    row.source_id     ?? undefined,
     pembeli:     row.pembeli       ?? undefined,
+    batchId:     row.batch_id      ?? undefined,
   };
 }
 
@@ -69,6 +71,7 @@ function txToDb(userId: string, tx: Omit<Transaction, "id">) {
     asal_barang:  tx.asalBarang  ?? null,
     source_id:    tx.sourceId    ?? null,
     pembeli:      tx.pembeli     ?? null,
+    batch_id:     tx.batchId     ?? null,
   };
 }
 
@@ -88,6 +91,11 @@ export async function insertTx(userId: string, tx: Omit<Transaction, "id">): Pro
   const { error } = await supabase
     .from("transactions")
     .insert(txToDb(userId, tx));
+  if (error) throw error;
+}
+
+export async function removeBatch(batchId: string): Promise<void> {
+  const { error } = await supabase.from("transactions").delete().eq("batch_id", batchId);
   if (error) throw error;
 }
 

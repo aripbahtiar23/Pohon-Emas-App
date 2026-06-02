@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, Scale, Gem } from "lucide-react";
+import { fetchGoldPriceData, type GoldPriceData } from "@/hooks/use-gold-price";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, Scale, Gem, Landmark } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -37,8 +39,16 @@ function Stat({
 }
 
 function Dashboard() {
-  const { tx, loading } = useTransactions();
+  const { tx } = useTransactions();
   const s = summarize(tx);
+  const [goldData, setGoldData] = useState<GoldPriceData | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(true);
+
+  useEffect(() => {
+    fetchGoldPriceData().then(setGoldData).finally(() => setLoadingPrice(false));
+  }, []);
+
+  const totalAset = goldData ? s.totalStock * goldData.pricePerGram : null;
 
   return (
     <AppShell>
@@ -55,6 +65,40 @@ function Dashboard() {
         <Stat label="Stok Logam Mulia" value={formatGr(s.lmStock)} icon={Coins} />
         <Stat label="Stok Perhiasan" value={formatGr(s.phStock)} icon={Gem} />
         <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`Jual ${formatIDR(s.totalJual)}`} icon={TrendingUp} />
+      </div>
+
+      {/* Total Aset */}
+      <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft mb-6 md:mb-8">
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Landmark className="size-4 text-gold-deep" /> Total Aset (estimasi harga emas harian)
+          </div>
+          {goldData && (
+            <span className="text-xs text-muted-foreground">
+              {goldData.source}
+            </span>
+          )}
+        </div>
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
+            {loadingPrice && !totalAset ? "Memuat harga..." : totalAset != null ? formatIDR(totalAset) : "—"}
+          </div>
+          {goldData?.movement != null && (
+            <div className={`text-sm font-medium tabular-nums mb-0.5 ${goldData.movement >= 0 ? "text-success" : "text-destructive"}`}>
+              {goldData.movement >= 0 ? "▲" : "▼"} {formatIDR(Math.abs(goldData.movement))}/gr
+              <span className="text-xs ml-1 opacity-70">({goldData.movementPct != null ? (goldData.movementPct >= 0 ? "+" : "") + goldData.movementPct.toFixed(2) + "%" : ""})</span>
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-muted-foreground mt-1">
+          {formatGr(s.totalStock)} × {goldData ? formatIDR(goldData.pricePerGram) + "/gr" : "memuat harga..."}
+          {goldData && goldData.source !== "Estimasi (offline)" && (
+            <span className="ml-2 text-success">(real-time)</span>
+          )}
+          {goldData?.source === "Estimasi (offline)" && (
+            <span className="ml-2 text-warning">(estimasi offline)</span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">

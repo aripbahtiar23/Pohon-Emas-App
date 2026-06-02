@@ -218,113 +218,177 @@ function stockLabel(t: Transaction) {
   return parts.filter(Boolean).join(" · ");
 }
 
+type SaleItem = { rowId: string; selectedStockId: string; harga: string };
+const newRowId = () => Math.random().toString(36).slice(2);
+const emptyRow = (): SaleItem => ({ rowId: newRowId(), selectedStockId: "", harga: "" });
+
 function SaleForm() {
   const { userId } = useAuth();
   const [stock, setStock] = useState<Transaction[]>([]);
-  const [selectedId, setSelectedId] = useState("");
-  const [harga, setHarga] = useState("");
+  const [items, setItems] = useState<SaleItem[]>([emptyRow()]);
   const [pembeli, setPembeli] = useState("");
-  const [tanggal, setTanggal] = useState(todayStr);
+  const [tanggal, setTanggal] = useState(todayStr());
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
     fetchAvailableStock(userId).then(setStock);
-
     const channel = supabase
       .channel(`stock-${userId}-${Math.random()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
         () => { fetchAvailableStock(userId).then(setStock); })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
-  const selected = stock.find((t) => t.id === selectedId);
+  const usedIds = new Set(items.map((i) => i.selectedStockId).filter(Boolean));
+
+  const updateItem = (rowId: string, patch: Partial<SaleItem>) =>
+    setItems((prev) => prev.map((i) => i.rowId === rowId ? { ...i, ...patch } : i));
+
+  const removeItem = (rowId: string) =>
+    setItems((prev) => prev.filter((i) => i.rowId !== rowId));
+
+  const addItem = () => setItems((prev) => [...prev, emptyRow()]);
+
+  // Summary
+  const resolvedItems = items.map((i) => ({ item: i, stock: stock.find((s) => s.id === i.selectedStockId) }));
+  const totalGramasi = resolvedItems.reduce((sum, { stock: s }) => sum + (s?.gramasi ?? 0), 0);
+  const totalNilai = resolvedItems.reduce((sum, { item }) => sum + (parseRupiah(item.harga) || 0), 0);
+  const validCount = resolvedItems.filter(({ item, stock: s }) => s && parseRupiah(item.harga) > 0).length;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId || !selected) return toast.error("Pilih barang terlebih dahulu");
-    const hargaJual = parseRupiah(harga);
-    if (!hargaJual) return toast.error("Harga jual wajib diisi");
+    if (!userId) return;
+    const invalid = resolvedItems.find(({ item, stock: s }) => !s || !parseRupiah(item.harga));
+    if (invalid) return toast.error("Semua baris harus diisi barang dan harga jual");
+    setSubmitting(true);
     try {
-      await insertTx(userId, {
-        type: "keluar",
-        category: selected.category,
-        date: new Date(tanggal + "T00:00:00").toISOString(),
-        namaProduct: selected.namaProduct,
-        noSeri: selected.noSeri,
-        nomerRef: selected.nomerRef,
-        karat: selected.karat,
-        kode: selected.kode,
-        gramasi: selected.gramasi,
-        harga: hargaJual,
-        sourceId: selected.id,
-        pembeli: pembeli.trim() || undefined,
-      });
-      toast.success("Penjualan dicatat");
-      setSelectedId(""); setHarga(""); setPembeli(""); setTanggal(todayStr());
+      const date = new Date(tanggal + "T00:00:00").toISOString();
+      const batchId = resolvedItems.length > 1 ? crypto.randomUUID() : undefined;
+      await Promise.all(resolvedItems.map(({ item, stock: s }) =>
+        insertTx(userId, {
+          type: "keluar",
+          category: s!.category,
+          date,
+          namaProduct: s!.namaProduct,
+          noSeri: s!.noSeri,
+          nomerRef: s!.nomerRef,
+          karat: s!.karat,
+          kode: s!.kode,
+          gramasi: s!.gramasi,
+          harga: parseRupiah(item.harga),
+          sourceId: s!.id,
+          pembeli: pembeli.trim() || undefined,
+          batchId,
+        })
+      ));
+      toast.success(`${resolvedItems.length} barang berhasil dicatat`);
+      setItems([emptyRow()]); setPembeli(""); setTanggal(todayStr());
     } catch {
       toast.error("Gagal menyimpan. Coba lagi.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <form onSubmit={submit} className="space-y-6">
-      <div className="space-y-2">
-        <Label>Pilih Barang dari Stok</Label>
+      {/* Daftar item */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Daftar Barang</Label>
+          <span className="text-xs text-muted-foreground">{items.length} barang</span>
+        </div>
+
         {stock.length === 0 ? (
           <p className="text-sm text-muted-foreground py-2">Tidak ada stok tersedia.</p>
         ) : (
-          <Select value={selectedId} onValueChange={setSelectedId}>
-            <SelectTrigger>
-              <SelectValue placeholder="— Pilih barang —" />
-            </SelectTrigger>
-            <SelectContent>
-              {stock.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{stockLabel(t)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          items.map((item, idx) => {
+            const sel = stock.find((s) => s.id === item.selectedStockId);
+            const available = stock.filter((s) => !usedIds.has(s.id) || s.id === item.selectedStockId);
+            return (
+              <div key={item.rowId} className="rounded-lg border border-border bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Barang {idx + 1}</span>
+                  {items.length > 1 && (
+                    <button type="button" onClick={() => removeItem(item.rowId)}
+                      className="text-xs text-destructive hover:underline">Hapus</button>
+                  )}
+                </div>
+
+                {/* Stock selector */}
+                <Select value={item.selectedStockId} onValueChange={(v) => updateItem(item.rowId, { selectedStockId: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="— Pilih barang dari stok —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {available.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{stockLabel(t)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Info barang compact */}
+                {sel && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-muted/40 rounded-md px-3 py-2">
+                    <div><span className="text-muted-foreground block">Gramasi</span><span className="font-medium">{formatGr(sel.gramasi)}</span></div>
+                    <div><span className="text-muted-foreground block">Harga Beli</span><span className="font-medium">{formatIDR(sel.harga)}</span></div>
+                    {sel.category === "logam_mulia"
+                      ? <div><span className="text-muted-foreground block">Produk</span><span className="font-medium">{sel.namaProduct}</span></div>
+                      : <div><span className="text-muted-foreground block">Karat</span><span className="font-medium">{sel.karat}</span></div>}
+                    {(sel.noSeri || sel.kode) && (
+                      <div><span className="text-muted-foreground block">{sel.noSeri ? "No Seri" : "Kode"}</span><span className="font-medium">{sel.noSeri || sel.kode}</span></div>
+                    )}
+                  </div>
+                )}
+
+                {/* Harga jual */}
+                <div className="space-y-1">
+                  <Label className="text-xs">Harga Jual</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
+                    <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
+                      value={item.harga}
+                      onChange={(e) => updateItem(item.rowId, { harga: formatRupiah(e.target.value) })} />
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {stock.length > 0 && (
+          <button type="button" onClick={addItem}
+            className="w-full py-2.5 rounded-lg border-2 border-dashed border-primary/30 text-sm text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-2">
+            <span className="text-lg leading-none">+</span> Tambah Barang
+          </button>
         )}
       </div>
 
-      {selected && (
-        <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Info Barang</p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      {/* Summary total */}
+      {validCount > 0 && (
+        <div className="rounded-lg border border-border bg-gradient-to-r from-card to-muted/30 p-4">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Ringkasan Penjualan</p>
+          <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <span className="text-muted-foreground">Kategori</span>
-              <p className="font-medium">{selected.category === "logam_mulia" ? "Logam Mulia" : "Perhiasan"}</p>
+              <p className="text-2xl font-semibold">{validCount}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Total Barang</p>
             </div>
-            {selected.category === "logam_mulia" ? (
-              <>
-                <div><span className="text-muted-foreground">Nama Product</span><p className="font-medium">{selected.namaProduct}</p></div>
-                <div><span className="text-muted-foreground">Gramasi</span><p className="font-medium">{formatGr(selected.gramasi)}</p></div>
-                {selected.noSeri && <div><span className="text-muted-foreground">No Seri</span><p className="font-medium">{selected.noSeri}</p></div>}
-                {selected.nomerRef && <div><span className="text-muted-foreground">Nomer REF</span><p className="font-medium">{selected.nomerRef}</p></div>}
-              </>
-            ) : (
-              <>
-                <div><span className="text-muted-foreground">Karat</span><p className="font-medium">{selected.karat}</p></div>
-                <div><span className="text-muted-foreground">Gramasi</span><p className="font-medium">{formatGr(selected.gramasi)}</p></div>
-                {selected.kode && <div><span className="text-muted-foreground">Kode</span><p className="font-medium">{selected.kode}</p></div>}
-              </>
-            )}
-            {selected.asalBarang && <div><span className="text-muted-foreground">Asal Barang</span><p className="font-medium">{selected.asalBarang}</p></div>}
-            <div><span className="text-muted-foreground">Harga Beli</span><p className="font-medium">{formatIDR(selected.harga)}</p></div>
+            <div>
+              <p className="text-2xl font-semibold">{formatGr(totalGramasi)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Total Gramasi</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-primary">{formatIDR(totalNilai)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Total Nilai Jual</p>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Shared fields */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="space-y-2">
-          <Label>Harga Jual</Label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
-            <Input type="text" inputMode="numeric" value={harga}
-              onChange={(e) => setHarga(formatRupiah(e.target.value))} placeholder="0" className="pl-9" />
-          </div>
-        </div>
         <div className="space-y-2">
           <Label>Nama Pembeli</Label>
           <Input value={pembeli} onChange={(e) => setPembeli(e.target.value)} placeholder="Nama pembeli (opsional)" />
@@ -336,11 +400,12 @@ function SaleForm() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button type="submit" size="lg" className="bg-gradient-gold text-gold-foreground hover:opacity-90 shadow-elegant">
-          Catat Penjualan
+        <Button type="submit" size="lg" disabled={submitting} className="bg-gradient-gold text-gold-foreground hover:opacity-90 shadow-elegant">
+          {submitting ? "Menyimpan..." : `Catat ${items.length} Barang`}
         </Button>
       </div>
     </form>
+
   );
 }
 
