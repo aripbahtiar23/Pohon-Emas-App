@@ -132,14 +132,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="text-xs text-sidebar-foreground/60">Reseller Ledger</div>
           </div>
         </div>
-        <button
-          aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((v) => !v)}
-          className="size-11 inline-flex items-center justify-center rounded-md hover:bg-sidebar-accent/60 active:bg-sidebar-accent transition-colors"
-        >
-          {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <UserButton
+            appearance={{ elements: { avatarBox: "size-8" } }}
+            userProfileUrl="/profile"
+            userProfileMode="navigation"
+          />
+          <button
+            aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="size-11 inline-flex items-center justify-center rounded-md hover:bg-sidebar-accent/60 active:bg-sidebar-accent transition-colors"
+          >
+            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -169,6 +176,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            {/* User di drawer */}
+            <div className="pt-2 border-t border-sidebar-border mt-1">
+              <UserArea collapsed={false} />
+            </div>
           </nav>
         </div>
       )}
