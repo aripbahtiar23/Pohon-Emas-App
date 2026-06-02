@@ -7,11 +7,11 @@ export const Route = createFileRoute("/sign-up")({
 
 function SignUpPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-12">
-      <div className="mb-8 flex flex-col items-center gap-0">
-        <img src="/logo.png" alt="Pohon Emas" className="size-60 object-contain -mb-14" />
-        <h1 className="font-serif text-2xl font-semibold tracking-tight">Pohon Emas</h1>
-        <p className="text-sm text-muted-foreground">Daftar akun reseller emas</p>
+    <div className="h-screen overflow-y-auto flex flex-col items-center justify-center bg-background px-4 py-6">
+      <div className="mb-4 flex flex-col items-center gap-0">
+        <img src="/logo.png" alt="Pohon Emas" className="size-28 sm:size-40 object-contain -mb-4 sm:-mb-8" />
+        <h1 className="font-serif text-xl sm:text-2xl font-semibold tracking-tight">Pohon Emas</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">Daftar akun reseller emas</p>
       </div>
       <SignUp
         routing="hash"
