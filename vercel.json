@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "rewrites": [
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/logo.png", "destination": "/logo.png" },
-    { "source": "/(.*)", "destination": "/api/index" }
+    { "source": "/logo.png",    "destination": "/logo.png"  },
+    { "source": "/(.*)",        "destination": "/api/index"  }
   ]
 }
