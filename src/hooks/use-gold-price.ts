@@ -116,13 +116,22 @@ export const fetchGoldPriceData = async (): Promise<GoldPriceData> => {
     let srcLabel = "";
 
     try {
-      const proxyRes = await fetch("/api/gold-price", { signal: AbortSignal.timeout(8000) });
+      const proxyRes = await fetch("/api/gold-price", { signal: AbortSignal.timeout(10000) });
       if (proxyRes.ok) {
         const d = await proxyRes.json();
-        if (d.pricePerGram && d.spotUSD && d.usdToIDR) {
-          spotUSD   = d.spotUSD;
-          usdToIDR  = d.usdToIDR;
-          srcLabel  = d.source ?? "proxy";
+        if (d.pricePerGram) {
+          // Proxy sudah hitung pricePerGram langsung
+          const mov = calcMovement(d.pricePerGram);
+          saveCache(d.pricePerGram);
+          return {
+            pricePerGram: d.pricePerGram,
+            spotUSD: d.spotUSD ?? 0,
+            usdToIDR: d.usdToIDR ?? 0,
+            source: d.source ?? "proxy",
+            fetchedAt: d.fetchedAt ?? new Date().toISOString(),
+            movement: mov?.movement,
+            movementPct: mov?.movementPct,
+          };
         }
       }
     } catch {}
