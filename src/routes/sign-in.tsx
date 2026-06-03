@@ -7,7 +7,7 @@ export const Route = createFileRoute("/sign-in")({
 
 function SignInPage() {
   return (
-    <div className="h-screen overflow-y-auto flex flex-col items-center justify-center bg-background px-4 py-6">
+    <div className="min-h-dvh flex flex-col items-center justify-center bg-background px-4 py-8" style={{ paddingTop: "max(2rem, env(safe-area-inset-top))", paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}>
       <div className="mb-4 flex flex-col items-center gap-0">
         <img
           src="/logo.png"
