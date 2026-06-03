@@ -177,18 +177,8 @@ function HargaEmas() {
               const hariIni = supabaseData?.rows.find((r) => r.berat_gram === 1)?.harga_dasar;
               const kemarin = hargaKemarin["1 gr"];
               if (!hariIni) return <p className="text-sm text-muted-foreground">{loading ? "Memuat..." : "Data belum tersedia."}</p>;
-              // Dummy preview saat belum ada data kemarin
               if (!kemarin) return (
-                <div className="opacity-50 select-none pointer-events-none">
-                  <div className="flex items-center gap-3 text-2xl font-bold text-success">
-                    <TrendingUp className="size-7" />
-                    <div>
-                      <div>Naik Rp 45.000</div>
-                      <div className="text-sm font-normal text-muted-foreground mt-0.5">1.65% dibandingkan kemarin</div>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-3 italic">* Contoh tampilan — data tersedia besok setelah jam 10</p>
-                </div>
+                <p className="text-sm text-muted-foreground">Data perbandingan belum tersedia. Akan muncul setelah jam 10:00 WIB hari berikutnya.</p>
               );
 
               const diff = hariIni - kemarin;
