@@ -1,28 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { AppShell } from "@/components/app-shell";
 import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
-import { fetchGoldPriceData, type GoldPriceData } from "@/hooks/use-gold-price";
 import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, Scale, Gem, Landmark } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { getPricePerGram } from "@/routes/harga";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function Stat({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  accent?: boolean;
+const PRICE_KEY = "pohon-emas:gold-price-history";
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+type PriceEntry = { date: string; price: number };
+type PriceHistory = { today: PriceEntry | null; yesterday: PriceEntry | null };
+
+function loadPriceHistory(): PriceHistory {
+  try {
+    const raw = localStorage.getItem(PRICE_KEY);
+    return raw ? JSON.parse(raw) : { today: null, yesterday: null };
+  } catch { return { today: null, yesterday: null }; }
+}
+
+function savePriceToday(price: number) {
+  const history = loadPriceHistory();
+  const today = todayStr();
+  const next: PriceHistory = {
+    yesterday: history.today?.date !== today ? history.today : history.yesterday,
+    today: { date: today, price },
+  };
+  localStorage.setItem(PRICE_KEY, JSON.stringify(next));
+}
+
+function Stat({ label, value, sub, icon: Icon, accent }: {
+  label: string; value: string; sub?: string;
+  icon: React.ComponentType<{ className?: string }>; accent?: boolean;
 }) {
   return (
     <div className={`rounded-xl border border-border p-3 md:p-5 shadow-soft ${accent ? "bg-gradient-gold text-gold-foreground border-transparent" : "bg-card"}`}>
@@ -41,14 +56,15 @@ function Stat({
 function Dashboard() {
   const { tx } = useTransactions();
   const s = summarize(tx);
-  const [goldData, setGoldData] = useState<GoldPriceData | null>(null);
-  const [loadingPrice, setLoadingPrice] = useState(true);
 
-  useEffect(() => {
-    fetchGoldPriceData().then(setGoldData).finally(() => setLoadingPrice(false));
-  }, []);
+  const [history] = useState<PriceHistory>(() => loadPriceHistory());
 
-  const totalAset = goldData ? s.totalStock * goldData.pricePerGram : null;
+  const pricePerGram = getPricePerGram();
+  const hargaHariIni = pricePerGram > 0 ? pricePerGram : (history.today?.date === todayStr() ? history.today.price : null);
+  const hargaKemarin = history.yesterday?.price ?? null;
+  const totalAset    = hargaHariIni != null && hargaHariIni > 0 ? s.totalStock * hargaHariIni : null;
+  const movement     = hargaHariIni != null && hargaKemarin != null ? hargaHariIni - hargaKemarin : null;
+  const movementPct  = movement != null && hargaKemarin ? (movement / hargaKemarin) * 100 : null;
 
   return (
     <AppShell>
@@ -67,36 +83,43 @@ function Dashboard() {
         <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`Jual ${formatIDR(s.totalJual)}`} icon={TrendingUp} />
       </div>
 
-      {/* Total Aset */}
-      <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft mb-6 md:mb-8">
-        <div className="flex items-center justify-between mb-1">
+      {/* Total Aset + Input Harga Emas */}
+      <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft mb-6 md:mb-8">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Landmark className="size-4 text-gold-deep" /> Total Aset (estimasi harga emas harian)
+            <Landmark className="size-4 text-gold-deep" /> Total Aset
           </div>
-          {goldData && (
-            <span className="text-xs text-muted-foreground">
-              {goldData.source}
-            </span>
-          )}
+          <Link to="/harga" className="text-xs text-primary hover:underline">
+            {hargaHariIni ? "Ubah harga" : "Input harga hari ini →"}
+          </Link>
         </div>
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
-            {loadingPrice && !totalAset ? "Memuat harga..." : totalAset != null ? formatIDR(totalAset) : "—"}
-          </div>
-          {goldData?.movement != null && (
-            <div className={`text-sm font-medium tabular-nums mb-0.5 ${goldData.movement >= 0 ? "text-success" : "text-destructive"}`}>
-              {goldData.movement >= 0 ? "▲" : "▼"} {formatIDR(Math.abs(goldData.movement))}/gr
-              <span className="text-xs ml-1 opacity-70">({goldData.movementPct != null ? (goldData.movementPct >= 0 ? "+" : "") + goldData.movementPct.toFixed(2) + "%" : ""})</span>
+
+        {/* Nilai aset */}
+        <div className="mt-3">
+          {totalAset != null ? (
+            <div className="flex items-end gap-3 flex-wrap">
+              <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
+                {formatIDR(totalAset)}
+              </div>
+              {movement != null && (
+                <div className={`text-sm font-medium tabular-nums mb-0.5 ${movement >= 0 ? "text-success" : "text-destructive"}`}>
+                  {movement >= 0 ? "▲" : "▼"} {formatIDR(Math.abs(movement))}/gr
+                  {movementPct != null && (
+                    <span className="text-xs ml-1 opacity-70">
+                      ({movementPct >= 0 ? "+" : ""}{movementPct.toFixed(2)}%)
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Masukkan harga emas hari ini untuk melihat estimasi total aset.</p>
           )}
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {formatGr(s.totalStock)} × {goldData ? formatIDR(goldData.pricePerGram) + "/gr" : "memuat harga..."}
-          {goldData && goldData.source !== "Estimasi (offline)" && (
-            <span className="ml-2 text-success">(real-time)</span>
-          )}
-          {goldData?.source === "Estimasi (offline)" && (
-            <span className="ml-2 text-warning">(estimasi offline)</span>
+          {totalAset != null && (
+            <div className="text-xs text-muted-foreground mt-1">
+              {formatGr(s.totalStock)} × {formatIDR(hargaHariIni!)}/gr
+              {hargaKemarin && <span className="ml-2">(kemarin: {formatIDR(hargaKemarin)}/gr)</span>}
+            </div>
           )}
         </div>
       </div>

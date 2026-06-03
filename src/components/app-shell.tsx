@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, TreeDeciduous, Menu, X, Wand2, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, TreeDeciduous, Menu, X, Wand2, ChevronLeft, ChevronRight, User, TrendingUp } from "lucide-react";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/masuk", label: "Barang Masuk", icon: ArrowDownToLine },
   { to: "/keluar", label: "Barang Keluar", icon: ArrowUpFromLine },
+  { to: "/harga", label: "Harga Emas", icon: TrendingUp },
   { to: "/story", label: "Generator Story", icon: Wand2 },
 ];
 

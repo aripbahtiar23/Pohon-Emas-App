@@ -15,6 +15,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MasukRouteImport } from './routes/masuk'
 import { Route as KeluarRouteImport } from './routes/keluar'
+import { Route as HargaRouteImport } from './routes/harga'
 import { Route as IndexRouteImport } from './routes/index'
 
 const StoryRoute = StoryRouteImport.update({
@@ -47,6 +48,11 @@ const KeluarRoute = KeluarRouteImport.update({
   path: '/keluar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HargaRoute = HargaRouteImport.update({
+  id: '/harga',
+  path: '/harga',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -55,6 +61,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/harga': typeof HargaRoute
   '/keluar': typeof KeluarRoute
   '/masuk': typeof MasukRoute
   '/profile': typeof ProfileRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/harga': typeof HargaRoute
   '/keluar': typeof KeluarRoute
   '/masuk': typeof MasukRoute
   '/profile': typeof ProfileRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/harga': typeof HargaRoute
   '/keluar': typeof KeluarRoute
   '/masuk': typeof MasukRoute
   '/profile': typeof ProfileRoute
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/harga'
     | '/keluar'
     | '/masuk'
     | '/profile'
@@ -94,6 +104,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/harga'
     | '/keluar'
     | '/masuk'
     | '/profile'
@@ -103,6 +114,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/harga'
     | '/keluar'
     | '/masuk'
     | '/profile'
@@ -113,6 +125,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HargaRoute: typeof HargaRoute
   KeluarRoute: typeof KeluarRoute
   MasukRoute: typeof MasukRoute
   ProfileRoute: typeof ProfileRoute
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KeluarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/harga': {
+      id: '/harga'
+      path: '/harga'
+      fullPath: '/harga'
+      preLoaderRoute: typeof HargaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -177,6 +197,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HargaRoute: HargaRoute,
   KeluarRoute: KeluarRoute,
   MasukRoute: MasukRoute,
   ProfileRoute: ProfileRoute,
