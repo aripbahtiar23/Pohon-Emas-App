@@ -20,7 +20,7 @@ type BankSettings  = { bankName: string; accountNumber: string; accountHolder: s
 type BrandSettings = { brandName: string; logo: string };
 
 const defaultBank:  BankSettings  = { bankName: "", accountNumber: "", accountHolder: "" };
-const defaultBrand: BrandSettings = { brandName: "Pohon Emas", logo: "" };
+const defaultBrand: BrandSettings = { brandName: "Pohon Emas", logo: "/logo.png" };
 
 function loadJSON<T>(key: string, fallback: T): T {
   try { const r = localStorage.getItem(key); return r ? { ...fallback, ...JSON.parse(r) } : fallback; }
@@ -418,7 +418,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                     {brand.logo && <img src={brand.logo} alt="" className="w-10 h-10 rounded border object-contain" />}
                     <label htmlFor="inv-logo" className="flex-1 cursor-pointer">
                       <div className="px-2 h-8 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-muted flex items-center transition-colors">
-                        {brand.logo ? "Ganti..." : "Pilih logo..."}
+                        {brand.logo && brand.logo !== "/logo.png" ? "Ganti logo..." : "Upload logo lain..."}
                       </div>
                       <input id="inv-logo" type="file" accept="image/*" className="sr-only"
                         onChange={(e) => {
@@ -428,8 +428,8 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                           reader.readAsDataURL(file); e.target.value = "";
                         }} />
                     </label>
-                    {brand.logo && (
-                      <button type="button" className="text-xs text-destructive" onClick={() => saveBrand({ ...brand, logo: "" })}>✕</button>
+                    {brand.logo && brand.logo !== "/logo.png" && (
+                      <button type="button" className="text-xs text-destructive" onClick={() => saveBrand({ ...brand, logo: "/logo.png" })}>✕</button>
                     )}
                   </div>
                 </div>
