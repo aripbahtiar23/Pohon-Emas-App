@@ -52,18 +52,21 @@ async function scrape() {
   const rows = [];
 
   // Cari tabel harga — logammulia.com biasanya punya <table> dengan header Berat/Harga
+  // Hanya proses tabel PERTAMA yang berisi Berat + Harga (Emas Batangan utama)
+  let found = false;
   $("table").each((_, table) => {
+    if (found) return; // stop setelah tabel pertama
     const headers = [];
-    $(table).find("thead tr th, thead tr td").each((_, th) => {
+    $(table).find("th").each((_, th) => {
       headers.push($(th).text().trim().toLowerCase());
     });
 
-    // Pastikan ini tabel harga emas
     const isHargaTable = headers.some((h) => h.includes("berat")) &&
                          headers.some((h) => h.includes("harga"));
     if (!isHargaTable) return;
+    found = true;
 
-    $(table).find("tbody tr").each((_, tr) => {
+    $(table).find("tr").each((_, tr) => {
       const cols = $(tr).find("td").map((_, td) => $(td).text().trim()).get();
       if (cols.length < 2) return;
 
@@ -83,10 +86,18 @@ async function scrape() {
     throw new Error("Tidak ada data harga ditemukan di halaman. Struktur HTML mungkin berubah.");
   }
 
-  console.log(`✅ Parsed ${rows.length} baris harga`);
-  rows.forEach((r) => console.log(`   ${r.berat}: Rp ${r.harga_dasar.toLocaleString("id-ID")}`));
+  // Deduplikasi: ambil harga pertama per berat (= Emas Batangan standard)
+  const seen = new Set();
+  const unique = rows.filter((r) => {
+    if (seen.has(r.berat)) return false;
+    seen.add(r.berat);
+    return true;
+  });
 
-  return rows;
+  console.log(`✅ Parsed ${unique.length} baris harga (dari ${rows.length} total)`);
+  unique.forEach((r) => console.log(`   ${r.berat}: Rp ${r.harga_dasar.toLocaleString("id-ID")}`));
+
+  return unique;
 }
 
 async function upsertToSupabase(rows) {
