@@ -1,20 +1,24 @@
 # Pohon Emas — Aplikasi Pembukuan Reseller Emas
 
-Aplikasi web untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar stok logam mulia & perhiasan, generate story pricelist harian, buat invoice pelanggan, dan pantau harga emas real-time.
+Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar stok logam mulia & perhiasan, generate story pricelist harian, buat invoice pelanggan, dan pantau harga emas real-time dari logammulia.com.
+
+**Live:** https://pohonemas.vercel.app
 
 ---
 
 ## Fitur
 
-- **Dashboard** — ringkasan stok, total aset (berdasarkan harga per gramasi), pergerakan harga harian
-- **Barang Masuk** — catat pembelian logam mulia & perhiasan
-- **Barang Keluar** — catat penjualan multi-item sekaligus, cari stok dengan search
-- **Riwayat Transaksi** — filter, search nama pembeli/asal, generate invoice
-- **Invoice** — buat invoice landscape bergaya elegan, share via WhatsApp
-- **Generator Story** — buat gambar pricelist 1080×1920px untuk Instagram/WhatsApp
-- **Harga Emas Hari Ini** — data harga terbaru dari logammulia.com, update otomatis jam 10:00 WIB
-- **Auth** — login/daftar/profil via Clerk
-- **PWA** — bisa diinstall ke home screen Android & iOS
+| Fitur | Deskripsi |
+|-------|-----------|
+| Dashboard | Ringkasan stok, total aset per gramasi, pergerakan harga harian |
+| Barang Masuk | Catat pembelian logam mulia & perhiasan |
+| Barang Keluar | Catat penjualan multi-item, cari stok dengan search |
+| Riwayat | Filter, search pembeli/asal, generate invoice |
+| Invoice | Landscape 1122×793px, brand custom, share WhatsApp |
+| Generator Story | Pricelist PNG 1080×1920px untuk Instagram/WhatsApp |
+| Harga Emas Hari Ini | Tabel harga & pergerakan dari logammulia.com |
+| Auth | Login/daftar/profil via Clerk |
+| PWA | Installable ke home screen Android & iOS |
 
 ---
 
@@ -52,7 +56,7 @@ VITE_SUPABASE_ANON_KEY=sb_publishable_...
 
 ### 3. Database Migration
 
-Jalankan SQL berikut di Supabase SQL Editor:
+Jalankan SQL di Supabase SQL Editor:
 
 ```sql
 -- Tabel transaksi
@@ -107,9 +111,11 @@ npm run dev
 
 Scraper mengambil harga dari [logammulia.com](https://www.logammulia.com/id/harga-emas-hari-ini) dan menyimpan ke Supabase.
 
-### Setup scraper
+> **Catatan:** logammulia.com memblokir request dari datacenter IP (GitHub Actions, Vercel). Scraper harus dijalankan dari komputer lokal dengan residential IP.
 
-Buat file `.env.scraper`:
+### Setup
+
+Buat file `.env.scraper` (tidak di-commit):
 
 ```env
 SUPABASE_URL=https://[project-id].supabase.co
@@ -122,9 +128,18 @@ SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 node scripts/scrape-harga-emas.js
 ```
 
-### Automasi (Windows Task Scheduler)
+### Automasi — Windows Task Scheduler
 
-Gunakan `scripts/run-scraper.bat` — jadwalkan via Task Scheduler jam 10:00 setiap hari.
+Gunakan `scripts/run-scraper.bat` — jadwalkan via Task Scheduler setiap hari jam 10:00 WIB.
+
+```powershell
+# Setup task (jalankan sebagai Administrator)
+$bat = "C:\path\to\scripts\run-scraper.bat"
+Register-ScheduledTask -TaskName "Scraper Harga Emas" `
+  -Action (New-ScheduledTaskAction -Execute $bat) `
+  -Trigger (New-ScheduledTaskTrigger -Daily -At "10:00AM") `
+  -RunLevel Highest -Force
+```
 
 ---
 
@@ -133,11 +148,7 @@ Gunakan `scripts/run-scraper.bat` — jadwalkan via Task Scheduler jam 10:00 set
 ### Vercel
 
 1. Connect repo ke Vercel
-2. Set environment variables di Vercel Dashboard
-3. Build command: `npm run build`
-4. Output directory: `dist`
-
-### Environment Vercel
+2. Set environment variables di Vercel Dashboard:
 
 | Variable | Keterangan |
 |----------|------------|
@@ -145,14 +156,22 @@ Gunakan `scripts/run-scraper.bat` — jadwalkan via Task Scheduler jam 10:00 set
 | `VITE_SUPABASE_URL` | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
 
+3. Build command: `npm run build`
+4. Output directory: `dist`
+
 ---
 
-## Struktur Branch
+## Struktur Branch & Workflow
 
 | Branch | Environment | URL |
 |--------|-------------|-----|
 | `main` | Production | pohonemas.vercel.app |
 | `dev` | Staging | stgpohonemas.vercel.app |
+
+**Workflow:**
+```
+develop di dev → push → test staging → merge ke main → auto-deploy prod
+```
 
 ---
 
