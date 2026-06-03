@@ -106,7 +106,11 @@ function DesktopSingleRow({ row, onEdit, onDelete, onInvoice }: { row: SingleRow
           </div>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-muted-foreground">{t.pembeli || "—"}</td>
+      <td className="px-4 py-3 text-sm text-muted-foreground">
+        {t.type === "keluar" && t.pembeli && <div className="font-medium text-foreground">{t.pembeli}</div>}
+        {t.type === "masuk" && t.asalBarang && <div>{t.asalBarang}</div>}
+        {!t.pembeli && !t.asalBarang && <span>—</span>}
+      </td>
       <td className="px-4 py-3 text-right tabular-nums">{formatGr(t.gramasi)}</td>
       <td className="px-4 py-3 text-right tabular-nums font-medium">{formatIDR(t.harga)}</td>
       <td className="px-4 py-3 text-right">
@@ -263,11 +267,15 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
     const grouped = groupTransactions(filtered);
     if (!search.trim()) return grouped;
     const q = search.toLowerCase();
-    return grouped.filter((r) =>
-      r.kind === "batch"
-        ? r.pembeli?.toLowerCase().includes(q)
-        : r.tx.pembeli?.toLowerCase().includes(q)
-    );
+    return grouped.filter((r) => {
+      if (r.kind === "batch") {
+        return r.pembeli?.toLowerCase().includes(q) ||
+               r.txs.some((t) => t.asalBarang?.toLowerCase().includes(q));
+      }
+      const t = r.tx;
+      return t.pembeli?.toLowerCase().includes(q) ||
+             t.asalBarang?.toLowerCase().includes(q);
+    });
   }, [filtered, search]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -297,7 +305,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
           <div className="relative max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Cari nama pembeli..."
+              placeholder="Cari nama pembeli atau asal barang..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-8 text-sm"
@@ -378,8 +386,8 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
                 </div>
                 {t.category === "logam_mulia" && t.namaProduct && <div className="text-sm font-medium">{t.namaProduct}</div>}
                 {t.category === "perhiasan" && <div className="text-sm font-medium">{t.kode || "Perhiasan"} <span className="text-muted-foreground font-normal">· {t.karat}</span></div>}
-                {t.type === "masuk" && t.asalBarang && <div className="text-xs text-muted-foreground">Dari: {t.asalBarang}</div>}
-                {t.type === "keluar" && t.pembeli && <div className="text-xs text-muted-foreground">Pembeli: {t.pembeli}</div>}
+                {t.type === "masuk" && t.asalBarang && <div className="text-xs text-muted-foreground">Asal: <span className="font-medium text-foreground">{t.asalBarang}</span></div>}
+                {t.type === "keluar" && t.pembeli && <div className="text-xs text-muted-foreground">Pembeli: <span className="font-medium text-foreground">{t.pembeli}</span></div>}
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <div className="text-sm text-muted-foreground tabular-nums">{formatGr(t.gramasi)}</div>
                   <div className="text-sm font-semibold tabular-nums">{formatIDR(t.harga)}</div>
@@ -398,7 +406,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
                 <th className="px-4 py-3 font-medium">Tipe</th>
                 <th className="px-4 py-3 font-medium">Kategori</th>
                 <th className="px-4 py-3 font-medium">Detail</th>
-                <th className="px-4 py-3 font-medium">Pembeli</th>
+                <th className="px-4 py-3 font-medium">Pembeli / Asal</th>
                 <th className="px-4 py-3 font-medium text-right">Gramasi</th>
                 <th className="px-4 py-3 font-medium text-right">Harga</th>
                 <th className="px-4 py-3" />
