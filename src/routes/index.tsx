@@ -1,38 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { AppShell } from "@/components/app-shell";
 import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
-import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
+import { formatGr, formatIDR, summarize, fetchAvailableStock, type Transaction } from "@/lib/goldbook";
+import { supabase } from "@/lib/supabase";
 import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, Scale, Gem, Landmark } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { getPricePerGram } from "@/routes/harga";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const PRICE_KEY = "pohon-emas:gold-price-history";
-const todayStr = () => new Date().toISOString().slice(0, 10);
+type HargaRow = { berat: string; berat_gram: number; harga_dasar: number };
 
-type PriceEntry = { date: string; price: number };
-type PriceHistory = { today: PriceEntry | null; yesterday: PriceEntry | null };
-
-function loadPriceHistory(): PriceHistory {
-  try {
-    const raw = localStorage.getItem(PRICE_KEY);
-    return raw ? JSON.parse(raw) : { today: null, yesterday: null };
-  } catch { return { today: null, yesterday: null }; }
-}
-
-function savePriceToday(price: number) {
-  const history = loadPriceHistory();
-  const today = todayStr();
-  const next: PriceHistory = {
-    yesterday: history.today?.date !== today ? history.today : history.yesterday,
-    today: { date: today, price },
-  };
-  localStorage.setItem(PRICE_KEY, JSON.stringify(next));
+// Cari harga untuk gramasi tertentu dari list
+function getHargaForItem(gramasi: number, list: HargaRow[]): number {
+  if (!list.length) return 0;
+  // Exact match
+  const exact = list.find((h) => h.berat_gram === gramasi);
+  if (exact) return exact.harga_dasar;
+  // Tidak ada exact → pakai harga 1gr × gramasi
+  const satu = list.find((h) => h.berat_gram === 1);
+  if (satu) return Math.round((satu.harga_dasar * gramasi) / 1000) * 1000;
+  return 0;
 }
 
 function Stat({ label, value, sub, icon: Icon, accent }: {
@@ -54,17 +46,36 @@ function Stat({ label, value, sub, icon: Icon, accent }: {
 }
 
 function Dashboard() {
+  const { userId } = useAuth();
   const { tx } = useTransactions();
   const s = summarize(tx);
 
-  const [history] = useState<PriceHistory>(() => loadPriceHistory());
+  const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
+  const [availableStock, setAvailable]  = useState<Transaction[]>([]);
+  const [hargaTanggal, setHargaTanggal] = useState("");
 
-  const pricePerGram = getPricePerGram();
-  const hargaHariIni = pricePerGram > 0 ? pricePerGram : (history.today?.date === todayStr() ? history.today.price : null);
-  const hargaKemarin = history.yesterday?.price ?? null;
-  const totalAset    = hargaHariIni != null && hargaHariIni > 0 ? s.totalStock * hargaHariIni : null;
-  const movement     = hargaHariIni != null && hargaKemarin != null ? hargaHariIni - hargaKemarin : null;
-  const movementPct  = movement != null && hargaKemarin ? (movement / hargaKemarin) * 100 : null;
+  useEffect(() => {
+    if (!userId) return;
+    // Fetch stok tersedia
+    fetchAvailableStock(userId).then(setAvailable);
+    // Fetch harga emas terbaru dari Supabase
+    supabase.from("harga_emas")
+      .select("tanggal").order("tanggal", { ascending: false }).limit(1).single()
+      .then(({ data: latest }) => {
+        if (!latest) return;
+        setHargaTanggal(latest.tanggal);
+        supabase.from("harga_emas")
+          .select("berat, berat_gram, harga_dasar")
+          .eq("tanggal", latest.tanggal)
+          .order("berat_gram", { ascending: true })
+          .then(({ data }) => { if (data) setHargaList(data as HargaRow[]); });
+      });
+  }, [userId]);
+
+  // Total aset = setiap item stok × harga bracket-nya
+  const totalAset = hargaList.length > 0
+    ? availableStock.reduce((sum, item) => sum + getHargaForItem(item.gramasi, hargaList), 0)
+    : null;
 
   return (
     <AppShell>
@@ -83,45 +94,30 @@ function Dashboard() {
         <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`Jual ${formatIDR(s.totalJual)}`} icon={TrendingUp} />
       </div>
 
-      {/* Total Aset + Input Harga Emas */}
+      {/* Total Aset */}
       <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft mb-6 md:mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Landmark className="size-4 text-gold-deep" /> Total Aset
           </div>
-          <Link to="/harga" className="text-xs text-primary hover:underline">
-            {hargaHariIni ? "Ubah harga" : "Input harga hari ini →"}
-          </Link>
+          <Link to="/harga" className="text-xs text-primary hover:underline">Lihat harga →</Link>
         </div>
 
-        {/* Nilai aset */}
-        <div className="mt-3">
-          {totalAset != null ? (
-            <div className="flex items-end gap-3 flex-wrap">
-              <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
-                {formatIDR(totalAset)}
-              </div>
-              {movement != null && (
-                <div className={`text-sm font-medium tabular-nums mb-0.5 ${movement >= 0 ? "text-success" : "text-destructive"}`}>
-                  {movement >= 0 ? "▲" : "▼"} {formatIDR(Math.abs(movement))}/gr
-                  {movementPct != null && (
-                    <span className="text-xs ml-1 opacity-70">
-                      ({movementPct >= 0 ? "+" : ""}{movementPct.toFixed(2)}%)
-                    </span>
-                  )}
-                </div>
-              )}
+        {totalAset != null ? (
+          <>
+            <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
+              {formatIDR(totalAset)}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Masukkan harga emas hari ini untuk melihat estimasi total aset.</p>
-          )}
-          {totalAset != null && (
             <div className="text-xs text-muted-foreground mt-1">
-              {formatGr(s.totalStock)} × {formatIDR(hargaHariIni!)}/gr
-              {hargaKemarin && <span className="ml-2">(kemarin: {formatIDR(hargaKemarin)}/gr)</span>}
+              {availableStock.length} item stok · harga per gramasi dari logammulia.com
+              {hargaTanggal && <span className="ml-1">({hargaTanggal})</span>}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {hargaList.length === 0 ? "Menunggu data harga..." : "Tidak ada stok tersedia."}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
