@@ -6,7 +6,7 @@ import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize, fetchAvailableStock, type Transaction } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, Scale, Gem, Landmark } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
@@ -52,23 +52,37 @@ function Dashboard() {
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
   const [availableStock, setAvailable]  = useState<Transaction[]>([]);
-  const [hargaTanggal, setHargaTanggal] = useState("");
+  const [hargaTanggal, setHargaTanggal]     = useState("");
+  const [harga1grHariIni, setHarga1grHariIni] = useState<number | null>(null);
+  const [harga1grKemarin, setHarga1grKemarin] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId) return;
-    // Fetch stok tersedia
     fetchAvailableStock(userId).then(setAvailable);
-    // Fetch harga emas terbaru dari Supabase
+
     supabase.from("harga_emas")
       .select("tanggal").order("tanggal", { ascending: false }).limit(1).single()
-      .then(({ data: latest }) => {
+      .then(async ({ data: latest }) => {
         if (!latest) return;
         setHargaTanggal(latest.tanggal);
-        supabase.from("harga_emas")
+
+        // Harga hari ini
+        const { data: todayRows } = await supabase.from("harga_emas")
           .select("berat, berat_gram, harga_dasar")
           .eq("tanggal", latest.tanggal)
-          .order("berat_gram", { ascending: true })
-          .then(({ data }) => { if (data) setHargaList(data as HargaRow[]); });
+          .order("berat_gram", { ascending: true });
+        if (todayRows) {
+          setHargaList(todayRows as HargaRow[]);
+          const satu = todayRows.find((r) => r.berat_gram === 1);
+          if (satu) setHarga1grHariIni(satu.harga_dasar);
+        }
+
+        // Harga kemarin (1gr)
+        const { data: kemarinRows } = await supabase.from("harga_emas")
+          .select("harga_dasar").eq("berat_gram", 1)
+          .lt("tanggal", latest.tanggal)
+          .order("tanggal", { ascending: false }).limit(1).single();
+        if (kemarinRows) setHarga1grKemarin(kemarinRows.harga_dasar);
       });
   }, [userId]);
 
@@ -94,32 +108,7 @@ function Dashboard() {
         <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`Jual ${formatIDR(s.totalJual)}`} icon={TrendingUp} />
       </div>
 
-      {/* Total Aset */}
-      <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft mb-6 md:mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Landmark className="size-4 text-gold-deep" /> Total Aset
-          </div>
-          <Link to="/harga" className="text-xs text-primary hover:underline">Lihat harga →</Link>
-        </div>
-
-        {totalAset != null ? (
-          <>
-            <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
-              {formatIDR(totalAset)}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              {availableStock.length} item stok · harga per gramasi dari logammulia.com
-              {hargaTanggal && <span className="ml-1">({hargaTanggal})</span>}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {hargaList.length === 0 ? "Menunggu data harga..." : "Tidak ada stok tersedia."}
-          </p>
-        )}
-      </div>
-
+      {/* Total Pembelian + Penjualan */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft">
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
@@ -132,6 +121,57 @@ function Dashboard() {
             <ArrowUpFromLine className="size-4 text-gold-deep" /> Total Penjualan
           </div>
           <div className="text-lg md:text-2xl font-semibold tracking-tight mt-1 md:mt-2 tabular-nums">{formatIDR(s.totalJual)}</div>
+        </div>
+      </div>
+
+      {/* Total Aset + Pergerakan Harga — 2 kolom */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
+        <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Landmark className="size-4 text-gold-deep" /> Total Aset
+            </div>
+            <Link to="/harga" className="text-xs text-primary hover:underline">Lihat harga →</Link>
+          </div>
+          {totalAset != null ? (
+            <>
+              <div className="text-2xl md:text-3xl font-semibold tracking-tight tabular-nums text-gold-deep">
+                {formatIDR(totalAset)}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {availableStock.length} item · {hargaTanggal || "—"}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Menunggu data harga...</p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <TrendingUp className="size-4 text-gold-deep" /> Pergerakan Harga
+            </div>
+            <Link to="/harga" className="text-xs text-primary hover:underline">Detail →</Link>
+          </div>
+          {!harga1grHariIni ? (
+            <p className="text-sm text-muted-foreground">Data belum tersedia.</p>
+          ) : !harga1grKemarin ? (
+            <p className="text-sm text-muted-foreground">Data kemarin belum ada.</p>
+          ) : (() => {
+            const diff = harga1grHariIni - harga1grKemarin;
+            const pct  = (diff / harga1grKemarin) * 100;
+            if (diff === 0) return <p className="text-sm text-muted-foreground">Belum ada pergerakan.</p>;
+            return (
+              <div className={`flex items-center gap-2 font-bold ${diff > 0 ? "text-success" : "text-destructive"}`}>
+                {diff > 0 ? <TrendingUp className="size-5" /> : <TrendingDown className="size-5" />}
+                <div>
+                  <div className="text-lg md:text-xl">{diff > 0 ? "Naik" : "Turun"} {formatIDR(Math.abs(diff))}</div>
+                  <div className="text-xs font-normal text-muted-foreground">{Math.abs(pct).toFixed(2)}% dibandingkan kemarin</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

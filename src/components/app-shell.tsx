@@ -29,7 +29,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/masuk", label: "Barang Masuk", icon: ArrowDownToLine },
   { to: "/keluar", label: "Barang Keluar", icon: ArrowUpFromLine },
-  { to: "/harga", label: "Harga Emas", icon: TrendingUp },
+  { to: "/harga", label: "Harga Emas Hari Ini", icon: TrendingUp },
   { to: "/story", label: "Generator Story", icon: Wand2 },
 ];
 
