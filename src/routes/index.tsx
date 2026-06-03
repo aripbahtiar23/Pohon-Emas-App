@@ -58,32 +58,35 @@ function Dashboard() {
 
   useEffect(() => {
     if (!userId) return;
-    fetchAvailableStock(userId).then(setAvailable);
+    let cancelled = false;
 
-    supabase.from("harga_emas")
-      .select("tanggal").order("tanggal", { ascending: false }).limit(1).single()
-      .then(async ({ data: latest }) => {
-        if (!latest) return;
-        setHargaTanggal(latest.tanggal);
+    fetchAvailableStock(userId).then((s) => { if (!cancelled) setAvailable(s); }).catch(() => {});
 
-        // Harga hari ini
+    (async () => {
+      try {
+        const { data: latest, error } = await supabase.from("harga_emas")
+          .select("tanggal").order("tanggal", { ascending: false }).limit(1).maybeSingle();
+        if (error || !latest || cancelled) return;
+        if (!cancelled) setHargaTanggal(latest.tanggal);
+
         const { data: todayRows } = await supabase.from("harga_emas")
           .select("berat, berat_gram, harga_dasar")
-          .eq("tanggal", latest.tanggal)
-          .order("berat_gram", { ascending: true });
-        if (todayRows) {
+          .eq("tanggal", latest.tanggal).order("berat_gram", { ascending: true });
+        if (todayRows && !cancelled) {
           setHargaList(todayRows as HargaRow[]);
-          const satu = todayRows.find((r) => r.berat_gram === 1);
+          const satu = todayRows.find((r: HargaRow) => r.berat_gram === 1);
           if (satu) setHarga1grHariIni(satu.harga_dasar);
         }
 
-        // Harga kemarin (1gr)
-        const { data: kemarinRows } = await supabase.from("harga_emas")
+        const { data: kemarin } = await supabase.from("harga_emas")
           .select("harga_dasar").eq("berat_gram", 1)
           .lt("tanggal", latest.tanggal)
-          .order("tanggal", { ascending: false }).limit(1).single();
-        if (kemarinRows) setHarga1grKemarin(kemarinRows.harga_dasar);
-      });
+          .order("tanggal", { ascending: false }).limit(1).maybeSingle();
+        if (kemarin && !cancelled) setHarga1grKemarin(kemarin.harga_dasar);
+      } catch { /* silent — UI stays in default state */ }
+    })();
+
+    return () => { cancelled = true; };
   }, [userId]);
 
   // Total aset = setiap item stok × harga bracket-nya

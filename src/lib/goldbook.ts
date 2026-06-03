@@ -126,6 +126,7 @@ export async function patchTx(
   if (patch.asalBarang   !== undefined) dbPatch.asal_barang  = patch.asalBarang;
   if (patch.sourceId     !== undefined) dbPatch.source_id    = patch.sourceId;
   if (patch.pembeli      !== undefined) dbPatch.pembeli      = patch.pembeli;
+  if (patch.batchId      !== undefined) dbPatch.batch_id     = patch.batchId;
 
   const { error } = await supabase
     .from("transactions")

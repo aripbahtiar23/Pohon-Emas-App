@@ -64,7 +64,7 @@ function HargaEmas() {
         .select("tanggal")
         .order("tanggal", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!latest) { setLoading(false); return; }
 
@@ -84,7 +84,7 @@ function HargaEmas() {
           .from("harga_emas").select("berat, harga_dasar")
           .lt("tanggal", latest.tanggal)
           .order("tanggal", { ascending: false })
-          .limit(rows.length);
+          .limit(rows.length * 2);
         if (kemarin) {
           const map: HargaKemarin = {};
           kemarin.forEach((r: { berat: string; harga_dasar: number }) => { if (!map[r.berat]) map[r.berat] = r.harga_dasar; });
