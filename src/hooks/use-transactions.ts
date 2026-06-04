@@ -23,7 +23,14 @@ export function useTransactions() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Fallback: listen ke event manual dari insertTx/removeTx/patchTx
+    const onUpdate = () => { fetchTx(userId).then(setTx); };
+    window.addEventListener("goldbook:update", onUpdate);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("goldbook:update", onUpdate);
+    };
   }, [userId]);
 
   return { tx, loading };

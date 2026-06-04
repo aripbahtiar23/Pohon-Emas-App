@@ -51,6 +51,10 @@ const masuk = [
   // JUNI
   { _id: id(), date: dt(2026,6,1),  category:"logam_mulia", namaProduct:"Antam Redmark",     gramasi:50,  harga:135_000_000, noSeri:"LM0801", asalBarang:"Kantor Antam" },
   { _id: id(), date: dt(2026,6,3),  category:"logam_mulia", namaProduct:"UBS",               gramasi:25,  harga:67_900_000,  noSeri:"UB0601", asalBarang:"Distributor Bandung" },
+  // Stok tersisa (belum terjual)
+  { _id: id(), date: dt(2026,6,10), category:"logam_mulia", namaProduct:"Antam Redmark",     gramasi:1,   harga:2_760_000,   noSeri:"LM0802", asalBarang:"Kantor Antam" },
+  { _id: id(), date: dt(2026,6,12), category:"logam_mulia", namaProduct:"Antam Redmark",     gramasi:1,   harga:2_765_000,   noSeri:"LM0803", asalBarang:"Kantor Antam" },
+  { _id: id(), date: dt(2026,6,14), category:"logam_mulia", namaProduct:"Antam Retro",       gramasi:0.5, harga:1_435_000,   noSeri:"LM0804", asalBarang:"Toko Mas Setia" },
 ];
 
 // ── KELUAR ────────────────────────────────────────────────────────────────────
@@ -81,11 +85,14 @@ const buildKeluar = (masukList) => {
     { sourceKey:17, date:dt(2026,5,26), harga:70_000_000,  pembeli:"Pak Reza Firmansyah"}, // +2,0jt
     { sourceKey:18, date:dt(2026,5,28), harga:70_100_000,  pembeli:"Bu Fitri Handayani" }, // +2,0jt
     { sourceKey:19, date:dt(2026,5,30), harga:30_000_000,  pembeli:"Toko Mas Mutiara"  }, // +1,6jt
-    { sourceKey:5,  date:dt(2026,5,31), harga:28_100_000,  pembeli:"Pak Eko Prasetyo"   }, // +1,7jt (LM0504)
+    { sourceKey:5,  date:dt(2026,3,29), harga:28_100_000,  pembeli:"Pak Eko Prasetyo"   }, // +1,7jt (Antam 10gr - beli Mar 15)
+    { sourceKey:6,  date:dt(2026,3,30), harga:27_900_000,  pembeli:"Bu Diana Kusuma"    }, // +1,7jt (Galeri24 10gr - beli Mar 18)
 
-    // JUNI
-    // masuk[20]=50gr Antam & masuk[21]=25gr UBS belum dijual (masih stok)
-    { sourceKey:6,  date:dt(2026,6,2),  harga:27_900_000,  pembeli:"Bu Diana Kusuma"    }, // +1,7jt (Galeri24 10gr)
+    // JUNI (margin +1.840.000)
+    // masuk[20]=50gr Antam → jual Jun 6, masuk[21]=25gr UBS → jual Jun 8
+    // masuk[22-24] = 2.5gr stok tersisa (belum dijual)
+    { sourceKey:20, date:dt(2026,6,6),  harga:141_000_000, pembeli:"CV Prima Emas"      }, // +6,0jt
+    { sourceKey:21, date:dt(2026,6,8),  harga:70_700_000,  pembeli:"Pak Surya Wijaya"   }, // +2,8jt
   ];
 };
 

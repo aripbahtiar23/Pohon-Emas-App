@@ -26,11 +26,11 @@ function LogoIcon() {
 }
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/masuk", label: "Barang Masuk", icon: ArrowDownToLine },
-  { to: "/keluar", label: "Barang Keluar", icon: ArrowUpFromLine },
-  { to: "/harga", label: "Harga Emas Hari Ini", icon: TrendingUp },
-  { to: "/story", label: "Generator Story", icon: Wand2 },
+  { to: "/",       label: "Dashboard",          short: "Home",    icon: LayoutDashboard },
+  { to: "/masuk",  label: "Barang Masuk",        short: "Masuk",   icon: ArrowDownToLine },
+  { to: "/keluar", label: "Barang Keluar",        short: "Keluar",  icon: ArrowUpFromLine },
+  { to: "/harga",  label: "Harga Emas Hari Ini", short: "Harga",   icon: TrendingUp },
+  { to: "/story",  label: "Generator Story",     short: "Story",   icon: Wand2 },
 ];
 
 function UserArea({ collapsed }: { collapsed: boolean }) {
@@ -191,21 +191,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-sidebar text-sidebar-foreground border-t border-sidebar-border flex pb-[env(safe-area-inset-bottom)]">
-        {nav.map(({ to, label, icon: Icon }) => {
+        {nav.map(({ to, label, short, icon: Icon }) => {
           const active = loc.pathname === to;
           return (
             <Link
               key={to}
               to={to}
               className={cn(
-                "flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-14 text-[11px] transition-colors",
+                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-h-14 text-[10px] transition-colors",
                 active
                   ? "text-sidebar-primary"
                   : "text-sidebar-foreground/70 active:bg-sidebar-accent/60"
               )}
             >
               <Icon className="size-5" />
-              <span className="leading-none">{label}</span>
+              <span className="leading-none truncate max-w-full px-0.5">{short}</span>
             </Link>
           );
         })}

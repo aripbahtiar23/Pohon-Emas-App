@@ -41,7 +41,11 @@ function Stat({ label, value, sub, icon: Icon, accent }: {
           <Icon className={`size-4 ${accent ? "text-gold-foreground" : "text-gold-deep"}`} />
         </div>
       </div>
-      <div className="mt-2 md:mt-3 text-xl md:text-2xl font-semibold tracking-tight tabular-nums">{value}</div>
+      <div className={`mt-2 md:mt-3 font-semibold tracking-tight tabular-nums ${
+        value.length > 18 ? "text-sm md:text-base" :
+        value.length > 14 ? "text-base md:text-xl" :
+        "text-lg md:text-2xl"
+      }`}>{value}</div>
       {sub && <div className={`mt-1 text-xs ${accent ? "text-gold-foreground/70" : "text-muted-foreground"}`}>{sub}</div>}
     </div>
   );
@@ -69,7 +73,19 @@ function Dashboard() {
     });
   }, [tx, filterYear, filterMonth, filterCat]);
 
-  const s = summarize(filteredTx, tx);
+  const s = summarize(filteredTx);
+
+  // Stok: semua transaksi s/d AKHIR periode filter (akumulasi historis)
+  // Bukan hanya transaksi dalam periode — ini mencegah stok minus cross-period
+  const stockTx = useMemo(() => {
+    if (filterYear === "all") return tx;
+    const month = filterMonth !== "all" ? Number(filterMonth) : 12;
+    const year  = Number(filterYear);
+    const endDate = new Date(year, month, 0, 23, 59, 59); // hari terakhir bulan
+    return tx.filter(t => new Date(t.date) <= endDate);
+  }, [tx, filterYear, filterMonth]);
+
+  const sStock = summarize(stockTx);
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
   const [hargaTanggal, setHargaTanggal] = useState("");
@@ -171,26 +187,25 @@ function Dashboard() {
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-        <Stat label="Total Stok" value={formatGr(s.totalStock)} sub={`${s.count} transaksi`} icon={Scale} accent />
-        <Stat label="Stok Logam Mulia" value={formatGr(s.lmStock)} icon={Coins} />
-        <Stat label="Stok Perhiasan" value={formatGr(s.phStock)} icon={Gem} />
-        <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`dari ${formatIDR(s.totalJual)} penjualan`} icon={TrendingUp} />
+        <Stat label="Total Stok" value={formatGr(Math.max(0, sStock.totalStock))} icon={Scale} accent />
+        <Stat label="Stok Logam Mulia" value={formatGr(Math.max(0, sStock.lmStock))} icon={Coins} />
+        <Stat label="Stok Perhiasan" value={formatGr(Math.max(0, sStock.phStock))} icon={Gem} />
+        <Stat label="Keuntungan" value={formatIDR(s.profit)} icon={TrendingUp} />
       </div>
 
       {/* Total Pembelian + Penjualan */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
-        <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft">
+        <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft flex flex-col">
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-            <ArrowDownToLine className="size-4 text-success" /> Total Harga Pembelian
+            <ArrowDownToLine className="size-4 text-success" /> Total Modal
           </div>
-          <div className="text-lg md:text-2xl font-semibold tracking-tight mt-1 md:mt-2 tabular-nums">{formatIDR(s.totalBeliTerjual)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Total modal: {formatIDR(s.totalBeli)}</div>
+          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalBeli).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalBeli).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(s.totalBeli)}</div>
         </div>
-        <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft">
+        <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft flex flex-col">
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
             <ArrowUpFromLine className="size-4 text-gold-deep" /> Total Penjualan
           </div>
-          <div className="text-lg md:text-2xl font-semibold tracking-tight mt-1 md:mt-2 tabular-nums">{formatIDR(s.totalJual)}</div>
+          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalJual).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalJual).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(s.totalJual)}</div>
         </div>
       </div>
 
