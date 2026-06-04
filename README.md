@@ -1,8 +1,8 @@
 # Pohon Emas — Aplikasi Pembukuan Reseller Emas
 
-Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar stok logam mulia & perhiasan, generate story pricelist harian, buat invoice pelanggan, dan pantau harga emas real-time dari logammulia.com.
+Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar stok logam mulia & perhiasan, generate story pricelist harian, buat invoice pelanggan, dan pantau harga emas dari logammulia.com.
 
-**Live:** https://pohonemas.vercel.app
+**Live:** https://pohonemas.vercel.app | **Staging:** https://stgpohonemas.vercel.app
 
 ---
 
@@ -10,13 +10,13 @@ Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar 
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| Dashboard | Ringkasan stok, total aset per gramasi, pergerakan harga harian |
+| Dashboard | Ringkasan stok, margin, total aset per gramasi, pergerakan harga — filter Kategori/Tahun/Bulan |
 | Barang Masuk | Catat pembelian logam mulia & perhiasan |
 | Barang Keluar | Catat penjualan multi-item, cari stok dengan search |
-| Riwayat | Filter, search pembeli/asal, generate invoice |
-| Invoice | Landscape 1122×793px, brand custom, share WhatsApp |
-| Generator Story | Pricelist PNG 1080×1920px untuk Instagram/WhatsApp |
-| Harga Emas Hari Ini | Tabel harga & pergerakan dari logammulia.com |
+| Riwayat | Filter tabs kiri, search pembeli/asal kanan, generate invoice |
+| Invoice | PDF landscape A4, brand custom, share WhatsApp |
+| Generator Story | Pricelist PNG 1080×1920px, auto-fill harga dari logammulia.com |
+| Harga Emas Hari Ini | Tabel harga & pergerakan naik/turun dari logammulia.com |
 | Auth | Login/daftar/profil via Clerk |
 | PWA | Installable ke home screen Android & iOS |
 
@@ -50,7 +50,7 @@ Buat file `.env.local`:
 
 ```env
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_SUPABASE_URL=https://[project-id].supabase.co
+VITE_SUPABASE_URL=https://[dev-project-id].supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_...
 ```
 
@@ -111,44 +111,64 @@ npm run dev
 
 Scraper mengambil harga dari [logammulia.com](https://www.logammulia.com/id/harga-emas-hari-ini) dan menyimpan ke Supabase.
 
-> **Catatan:** logammulia.com memblokir request dari datacenter IP (GitHub Actions, Vercel). Scraper harus dijalankan dari komputer lokal dengan residential IP.
+> **Catatan:** logammulia.com memblokir request dari datacenter IP (GitHub Actions, Vercel). Scraper harus dijalankan dari komputer lokal.
 
-### Setup
+### Setup env file (tidak di-commit)
 
-Buat file `.env.scraper` (tidak di-commit):
-
+**Prod** — `.env.scraper`:
 ```env
-SUPABASE_URL=https://[project-id].supabase.co
+SUPABASE_URL=https://[prod-project].supabase.co
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 ```
 
-### Jalankan manual
+**Dev** — `.env.scraper.dev`:
+```env
+SUPABASE_URL=https://[dev-project].supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+```
+
+### Jalankan
 
 ```bash
-node scripts/scrape-harga-emas.js
+# Prod
+double-click scripts/run-scraper.bat
+
+# Dev
+double-click scripts/run-scraper-dev.bat
 ```
 
 ### Automasi — Windows Task Scheduler
 
-Gunakan `scripts/run-scraper.bat` — jadwalkan via Task Scheduler setiap hari jam 10:00 WIB.
+Script `scripts/run-scraper.bat` dijadwalkan jam **08:58 WIB** via Task Scheduler dengan `WakeToRun` aktif.
 
-```powershell
-# Setup task (jalankan sebagai Administrator)
-$bat = "C:\path\to\scripts\run-scraper.bat"
-Register-ScheduledTask -TaskName "Scraper Harga Emas" `
-  -Action (New-ScheduledTaskAction -Execute $bat) `
-  -Trigger (New-ScheduledTaskTrigger -Daily -At "10:00AM") `
-  -RunLevel Highest -Force
+---
+
+## Data Dummy (Dev Only)
+
+Script `scripts/seed-dummy-data.mjs` membuat 42 transaksi (Mar–Jun 2026) dengan margin ~Rp 51.9 juta untuk testing dashboard.
+
+```bash
+$env:SUPABASE_URL="https://[dev].supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="sb_secret_..."
+node scripts/seed-dummy-data.mjs
 ```
+
+**⚠️ Hanya untuk dev Supabase — jangan jalankan ke prod.**
+
+---
+
+## Margin Calculation
+
+`Estimasi Margin` = realized profit dari pasangan terjual saja:
+- `profit` = Σ (keluar.harga − source_masuk.harga) untuk setiap keluar yang punya source_id
+- `Total Harga Pembelian` = HPP = harga pokok barang yang sudah terjual
+- **Bukan** total jual − total beli (bisa negatif kalau ada stok belum terjual)
 
 ---
 
 ## Deploy
 
-### Vercel
-
-1. Connect repo ke Vercel
-2. Set environment variables di Vercel Dashboard:
+### Vercel Environment Variables
 
 | Variable | Keterangan |
 |----------|------------|
@@ -156,21 +176,10 @@ Register-ScheduledTask -TaskName "Scraper Harga Emas" `
 | `VITE_SUPABASE_URL` | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
 
-3. Build command: `npm run build`
-4. Output directory: `dist`
+### Branch Workflow
 
----
-
-## Struktur Branch & Workflow
-
-| Branch | Environment | URL |
-|--------|-------------|-----|
-| `main` | Production | pohonemas.vercel.app |
-| `dev` | Staging | stgpohonemas.vercel.app |
-
-**Workflow:**
 ```
-develop di dev → push → test staging → merge ke main → auto-deploy prod
+develop → dev branch → push → staging (stgpohonemas.vercel.app) → test → merge main → prod
 ```
 
 ---
