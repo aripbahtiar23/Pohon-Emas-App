@@ -24,12 +24,10 @@ function MasukPage() {
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Barang Masuk</h1>
         <p className="text-muted-foreground mt-1">Catat barang yang masuk ke stok Anda.</p>
       </header>
-
       <div className="mb-8">
         <TransactionForm type="masuk" />
       </div>
-
-      <TransactionTable filterType="masuk" title="Riwayat Barang Masuk" />
+      <TransactionTable filterType="masuk" title="Riwayat Barang Masuk" showDateFilter />
     </AppShell>
   );
 }

@@ -9,7 +9,7 @@ import { formatRupiah, parseRupiah } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil, ChevronLeft, ChevronRight, Search, FileText } from "lucide-react";
+import { Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil, ChevronLeft, ChevronRight, Search, FileText, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -168,6 +168,12 @@ function groupTransactions(list: Transaction[]): DisplayRow[] {
 interface Props {
   filterType?: TxType;
   title?: string;
+  filterYear?: string;
+  filterMonth?: string;
+  filterCat?: string;
+  filterDateFrom?: string;
+  filterDateTo?: string;
+  showDateFilter?: boolean;
 }
 
 function PageControls({
@@ -235,7 +241,7 @@ function PageControls({
   );
 }
 
-export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Props) {
+export function TransactionTable({ filterType, title = "Riwayat Transaksi", filterYear, filterMonth, filterCat: extCat, filterDateFrom: extDateFrom, filterDateTo: extDateTo, showDateFilter }: Props) {
   const { tx: all, loading } = useTransactions();
   const [cat, setCat] = useState<"all" | "logam_mulia" | "perhiasan">("all");
   const [search, setSearch] = useState("");
@@ -244,6 +250,10 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
   const [batchEditTarget, setBatchEditTarget] = useState<BatchRow | null>(null);
   const [invoiceData, setInvoiceData] = useState<InvoiceGeneratorData | null>(null);
+  const [intDateFrom, setIntDateFrom] = useState("");
+  const [intDateTo, setIntDateTo]     = useState("");
+  const filterDateFrom = extDateFrom ?? (showDateFilter ? intDateFrom : undefined);
+  const filterDateTo   = extDateTo   ?? (showDateFilter ? intDateTo   : undefined);
 
   const openInvoiceSingle = (t: Transaction) => setInvoiceData({
     transactionIds: [t.id],
@@ -261,6 +271,14 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
 
   let filtered: Transaction[] = all;
   if (filterType) filtered = filtered.filter((t) => t.type === filterType);
+  // Filter dari dashboard (tahun/bulan/kategori)
+  if (filterYear && filterYear !== "all") filtered = filtered.filter((t) => new Date(t.date).getFullYear() === Number(filterYear));
+  if (filterMonth && filterMonth !== "all") filtered = filtered.filter((t) => new Date(t.date).getMonth() + 1 === Number(filterMonth));
+  if (extCat && extCat !== "all") filtered = filtered.filter((t) => t.category === extCat);
+  // Filter rentang tanggal
+  if (filterDateFrom) filtered = filtered.filter((t) => t.date.slice(0,10) >= filterDateFrom);
+  if (filterDateTo)   filtered = filtered.filter((t) => t.date.slice(0,10) <= filterDateTo);
+  // Filter tabs internal
   if (cat !== "all") filtered = filtered.filter((t) => t.category === cat);
 
   const rows = useMemo(() => {
@@ -294,23 +312,38 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
           {/* Row 1: judul */}
           <h3 className="font-semibold tracking-tight">{title}</h3>
 
-          {/* Row 2: filter tabs kiri + search kanan — sejajar */}
-          <div className="flex items-center justify-between gap-3">
-            <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
-              <TabsList className="w-full sm:w-auto">
-                <TabsTrigger value="all" className="flex-1 sm:flex-none">Semua</TabsTrigger>
-                <TabsTrigger value="logam_mulia" className="flex-1 sm:flex-none">Logam Mulia</TabsTrigger>
-                <TabsTrigger value="perhiasan" className="flex-1 sm:flex-none">Perhiasan</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="relative w-48 sm:w-64 shrink-0">
+          {/* Desktop: [Tabs][Date] kiri — [Search] kanan | Mobile: stacked */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            {/* Kiri: Tabs + Date sejajar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
+                <TabsList className="w-full sm:w-auto">
+                  <TabsTrigger value="all" className="flex-1 sm:flex-none">Semua</TabsTrigger>
+                  <TabsTrigger value="logam_mulia" className="flex-1 sm:flex-none">Logam Mulia</TabsTrigger>
+                  <TabsTrigger value="perhiasan" className="flex-1 sm:flex-none">Perhiasan</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {showDateFilter && (
+                <div className="flex sm:inline-flex items-center gap-1.5">
+                  <DatePicker value={intDateFrom} onChange={setIntDateFrom} className="flex-1 sm:w-[120px] sm:flex-none h-8 text-xs" />
+                  <span className="text-muted-foreground shrink-0 text-xs">–</span>
+                  <DatePicker value={intDateTo} onChange={setIntDateTo} className="flex-1 sm:w-[120px] sm:flex-none h-8 text-xs" />
+                  {(intDateFrom || intDateTo) && (
+                    <button type="button" onClick={() => { setIntDateFrom(""); setIntDateTo(""); }}
+                      className="h-9 w-9 flex items-center justify-center rounded-md border border-input hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0">
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Kanan: Search */}
+            <div className="relative w-full sm:w-52 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                placeholder="Cari pembeli / asal..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-8 text-sm"
-              />
+              <Input placeholder="Cari pembeli / asal..." value={search}
+                onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8 text-sm w-full" />
             </div>
           </div>
         </div>

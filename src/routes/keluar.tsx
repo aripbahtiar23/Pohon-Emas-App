@@ -24,12 +24,10 @@ function KeluarPage() {
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Barang Keluar</h1>
         <p className="text-muted-foreground mt-1">Catat barang yang keluar dari stok Anda.</p>
       </header>
-
       <div className="mb-8">
         <TransactionForm type="keluar" />
       </div>
-
-      <TransactionTable filterType="keluar" title="Riwayat Barang Keluar" />
+      <TransactionTable filterType="keluar" title="Riwayat Barang Keluar" showDateFilter />
     </AppShell>
   );
 }

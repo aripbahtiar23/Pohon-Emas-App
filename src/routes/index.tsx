@@ -7,7 +7,7 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
@@ -145,21 +145,21 @@ function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-1">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Ringkasan Stok & Keuangan</h1>
 
-          {/* Filter kanan */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Filter kanan — 1 baris fleksibel */}
+          <div className="flex items-center gap-1.5 min-w-0">
             <Select value={filterCat} onValueChange={(v) => setFilterCat(v as typeof filterCat)}>
-              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="flex-1 min-w-0 sm:w-[130px] sm:flex-none h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua Kategori</SelectItem>
+                <SelectItem value="all">Kategori</SelectItem>
                 <SelectItem value="logam_mulia">Logam Mulia</SelectItem>
                 <SelectItem value="perhiasan">Perhiasan</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={filterYear} onValueChange={(v) => { setFilterYear(v); setFilterMonth("all"); }}>
-              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="flex-1 min-w-0 sm:w-[130px] sm:flex-none h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua Tahun</SelectItem>
+                <SelectItem value="all">Tahun</SelectItem>
                 {availableYears.map((y) => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                 ))}
@@ -167,9 +167,9 @@ function Dashboard() {
             </Select>
 
             <Select value={filterMonth} onValueChange={setFilterMonth} disabled={filterYear === "all"}>
-              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="flex-1 min-w-0 sm:w-[130px] sm:flex-none h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Semua Bulan</SelectItem>
+                <SelectItem value="all">Bulan</SelectItem>
                 {MONTHS.map((m, i) => (
                   <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
                 ))}
@@ -178,8 +178,8 @@ function Dashboard() {
 
             {(filterCat !== "all" || filterYear !== "all") && (
               <button type="button" onClick={() => { setFilterCat("all"); setFilterYear("all"); setFilterMonth("all"); }}
-                className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted">
-                Reset filter
+                className="h-9 w-9 flex items-center justify-center rounded-md border border-input bg-background hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0">
+                <X className="size-4" />
               </button>
             )}
           </div>
@@ -262,7 +262,12 @@ function Dashboard() {
         </div>
       </div>
 
-      <TransactionTable title="Riwayat Transaksi Terbaru" />
+      <TransactionTable
+        title="Riwayat Transaksi Terbaru"
+        filterYear={filterYear}
+        filterMonth={filterMonth}
+        filterCat={filterCat}
+      />
     </AppShell>
   );
 }
