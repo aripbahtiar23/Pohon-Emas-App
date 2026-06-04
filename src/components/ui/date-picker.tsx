@@ -32,6 +32,7 @@ function fromDate(date: Date): string {
 
 export function DatePicker({ value, onChange, className }: Props) {
   const [open, setOpen] = useState(false);
+  const curYear = new Date().getFullYear();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,6 +59,10 @@ export function DatePicker({ value, onChange, className }: Props) {
               setOpen(false);
             }
           }}
+          captionLayout="dropdown"
+          fromYear={curYear - 8}
+          toYear={curYear + 1}
+          defaultMonth={toDate(value)}
           initialFocus
         />
       </PopoverContent>
