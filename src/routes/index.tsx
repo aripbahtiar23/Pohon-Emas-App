@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { AppShell } from "@/components/app-shell";
 import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize, fetchAvailableStock, type Transaction } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+
+const MONTHS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -18,12 +21,11 @@ type HargaRow = { berat: string; berat_gram: number; harga_dasar: number };
 // Cari harga untuk gramasi tertentu dari list
 function getHargaForItem(gramasi: number, list: HargaRow[]): number {
   if (!list.length) return 0;
-  // Exact match
-  const exact = list.find((h) => h.berat_gram === gramasi);
-  if (exact) return exact.harga_dasar;
-  // Tidak ada exact → pakai harga 1gr × gramasi
-  const satu = list.find((h) => h.berat_gram === 1);
-  if (satu) return Math.round((satu.harga_dasar * gramasi) / 1000) * 1000;
+  // Supabase NUMERIC bisa return string — cast ke number
+  const exact = list.find((h) => Number(h.berat_gram) === gramasi);
+  if (exact) return Number(exact.harga_dasar);
+  const satu = list.find((h) => Number(h.berat_gram) === 1);
+  if (satu) return Math.round((Number(satu.harga_dasar) * gramasi) / 1000) * 1000;
   return 0;
 }
 
@@ -48,7 +50,26 @@ function Stat({ label, value, sub, icon: Icon, accent }: {
 function Dashboard() {
   const { userId } = useAuth();
   const { tx } = useTransactions();
-  const s = summarize(tx);
+
+  const [filterYear, setFilterYear]   = useState("all");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterCat, setFilterCat]     = useState<"all"|"logam_mulia"|"perhiasan">("all");
+
+  const availableYears = useMemo(() =>
+    Array.from(new Set(tx.map((t) => new Date(t.date).getFullYear()))).sort((a, b) => b - a),
+  [tx]);
+
+  const filteredTx = useMemo(() => {
+    return tx.filter((t) => {
+      const d = new Date(t.date);
+      if (filterYear !== "all" && d.getFullYear() !== Number(filterYear)) return false;
+      if (filterMonth !== "all" && d.getMonth() + 1 !== Number(filterMonth)) return false;
+      if (filterCat !== "all" && t.category !== filterCat) return false;
+      return true;
+    });
+  }, [tx, filterYear, filterMonth, filterCat]);
+
+  const s = summarize(filteredTx, tx);
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
   const [availableStock, setAvailable]  = useState<Transaction[]>([]);
@@ -74,8 +95,8 @@ function Dashboard() {
           .eq("tanggal", latest.tanggal).order("berat_gram", { ascending: true });
         if (todayRows && !cancelled) {
           setHargaList(todayRows as HargaRow[]);
-          const satu = todayRows.find((r: HargaRow) => r.berat_gram === 1);
-          if (satu) setHarga1grHariIni(satu.harga_dasar);
+          const satu = todayRows.find((r: HargaRow) => Number(r.berat_gram) === 1);
+          if (satu) setHarga1grHariIni(Number(satu.harga_dasar));
         }
 
         const { data: kemarin } = await supabase.from("harga_emas")
@@ -100,24 +121,65 @@ function Dashboard() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <img src="/logo.png" alt="Pohon Emas" className="size-8 object-contain" /> Pohon Emas Dashboard
         </div>
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight mt-1">Ringkasan Stok & Keuangan</h1>
-        <p className="text-muted-foreground mt-1">Pantau stok logam mulia, perhiasan, dan margin Anda.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Ringkasan Stok & Keuangan</h1>
+
+          {/* Filter kanan */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={filterCat} onValueChange={(v) => setFilterCat(v as typeof filterCat)}>
+              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Kategori</SelectItem>
+                <SelectItem value="logam_mulia">Logam Mulia</SelectItem>
+                <SelectItem value="perhiasan">Perhiasan</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterYear} onValueChange={(v) => { setFilterYear(v); setFilterMonth("all"); }}>
+              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Tahun</SelectItem>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={filterMonth} onValueChange={setFilterMonth} disabled={filterYear === "all"}>
+              <SelectTrigger className="w-[150px] h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Bulan</SelectItem>
+                {MONTHS.map((m, i) => (
+                  <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(filterCat !== "all" || filterYear !== "all") && (
+              <button type="button" onClick={() => { setFilterCat("all"); setFilterYear("all"); setFilterMonth("all"); }}
+                className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted">
+                Reset filter
+              </button>
+            )}
+          </div>
+        </div>
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <Stat label="Total Stok" value={formatGr(s.totalStock)} sub={`${s.count} transaksi`} icon={Scale} accent />
         <Stat label="Stok Logam Mulia" value={formatGr(s.lmStock)} icon={Coins} />
         <Stat label="Stok Perhiasan" value={formatGr(s.phStock)} icon={Gem} />
-        <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`Jual ${formatIDR(s.totalJual)}`} icon={TrendingUp} />
+        <Stat label="Estimasi Margin" value={formatIDR(s.profit)} sub={`dari ${formatIDR(s.totalJual)} penjualan`} icon={TrendingUp} />
       </div>
 
       {/* Total Pembelian + Penjualan */}
       <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft">
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-            <ArrowDownToLine className="size-4 text-success" /> Total Pembelian
+            <ArrowDownToLine className="size-4 text-success" /> Total Harga Pembelian
           </div>
-          <div className="text-lg md:text-2xl font-semibold tracking-tight mt-1 md:mt-2 tabular-nums">{formatIDR(s.totalBeli)}</div>
+          <div className="text-lg md:text-2xl font-semibold tracking-tight mt-1 md:mt-2 tabular-nums">{formatIDR(s.totalBeliTerjual)}</div>
+          <div className="text-xs text-muted-foreground mt-1">Total modal: {formatIDR(s.totalBeli)}</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft">
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
@@ -142,7 +204,9 @@ function Dashboard() {
                 {formatIDR(totalAset)}
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                {availableStock.length} item · {hargaTanggal || "—"}
+                {availableStock.length} item ·{" "}
+                {formatGr(availableStock.reduce((s, i) => s + i.gramasi, 0))} ·{" "}
+                {hargaTanggal || "—"}
               </div>
             </>
           ) : (
@@ -153,7 +217,7 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <TrendingUp className="size-4 text-gold-deep" /> Pergerakan Harga
+              <Activity className="size-4 text-gold-deep" /> Pergerakan Harga Emas Hari Ini
             </div>
             <Link to="/harga" className="text-xs text-primary hover:underline">Detail →</Link>
           </div>

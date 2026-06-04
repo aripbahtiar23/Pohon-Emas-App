@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type GoldPriceData = {
   pricePerGram: number;
@@ -209,10 +210,71 @@ export const useGoldPrice = () => {
     }));
   }, []);
 
+  /** Fetch harga dari Supabase harga_emas → return rows langsung */
+  const fetchFromSupabase = useCallback(async () => {
+    try {
+      const { data: latest } = await supabase.from("harga_emas")
+        .select("tanggal").order("tanggal", { ascending: false }).limit(1).maybeSingle();
+      if (!latest) return null;
+
+      const { data: rows } = await supabase.from("harga_emas")
+        .select("berat, berat_gram, harga_dasar")
+        .eq("tanggal", latest.tanggal)
+        .order("berat_gram", { ascending: true });
+      if (!rows || rows.length === 0) return null;
+
+      const priceRows = rows.map((r: { berat: string; berat_gram: number; harga_dasar: number }) => ({
+        id: newId(),
+        weight: String(r.berat_gram),
+        unit: "gram",
+        price: String(r.harga_dasar),
+      }));
+
+      const satu = rows.find((r: { berat_gram: number; harga_dasar: number }) => r.berat_gram === 1);
+      const pricePerGram = satu?.harga_dasar ?? 0;
+
+      // Ambil harga 1gr kemarin untuk hitung pergerakan
+      let movement: number | undefined;
+      let movementPct: number | undefined;
+      if (pricePerGram > 0) {
+        const { data: kemarin } = await supabase.from("harga_emas")
+          .select("harga_dasar").eq("berat_gram", 1)
+          .lt("tanggal", latest.tanggal)
+          .order("tanggal", { ascending: false }).limit(1).maybeSingle();
+        if (kemarin?.harga_dasar) {
+          movement = pricePerGram - kemarin.harga_dasar;
+          movementPct = (movement / kemarin.harga_dasar) * 100;
+        }
+      }
+
+      return {
+        rows: priceRows,
+        data: {
+          pricePerGram,
+          spotUSD: 0,
+          usdToIDR: 0,
+          source: `logammulia.com (${latest.tanggal})`,
+          fetchedAt: new Date().toISOString(),
+          movement,
+          movementPct,
+        } as GoldPriceData,
+      };
+    } catch {
+      return null;
+    }
+  }, []);
+
   const fetchAndFill = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Prioritas 1: Supabase harga_emas (data logammulia.com akurat)
+      const supabaseResult = await fetchFromSupabase();
+      if (supabaseResult) {
+        setLastFetch(supabaseResult.data);
+        return supabaseResult;
+      }
+      // Fallback: Yahoo Finance proxy
       const data = await fetchGoldPriceData();
       setLastFetch(data);
       const rows = generatePriceRows(data.pricePerGram);

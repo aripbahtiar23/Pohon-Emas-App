@@ -157,8 +157,11 @@ export function formatGr(n: number) {
   return `${n.toLocaleString("id-ID", { maximumFractionDigits: 3 })} gr`;
 }
 
-export function summarize(list: Transaction[]) {
-  let lmIn = 0, lmOut = 0, phIn = 0, phOut = 0, beli = 0, jual = 0;
+export function summarize(list: Transaction[], allTx?: Transaction[]) {
+  let lmIn = 0, lmOut = 0, phIn = 0, phOut = 0, beli = 0, jual = 0, profit = 0;
+  const lookup = allTx ?? list;
+  const masukMap = new Map(lookup.filter(t => t.type === "masuk").map(t => [t.id, t]));
+
   for (const t of list) {
     if (t.type === "masuk") {
       beli += t.harga;
@@ -168,15 +171,25 @@ export function summarize(list: Transaction[]) {
       jual += t.harga;
       if (t.category === "logam_mulia") lmOut += t.gramasi;
       else phOut += t.gramasi;
+      // Margin hanya dari keluar yang punya source (realized profit)
+      if (t.sourceId) {
+        const src = masukMap.get(t.sourceId);
+        if (src) profit += t.harga - src.harga;
+      } else {
+        // Keluar tanpa source_id: pakai harga jual - harga beli rata-rata
+        profit += 0;
+      }
     }
   }
+
   return {
-    lmStock:    lmIn - lmOut,
-    phStock:    phIn - phOut,
-    totalStock: lmIn - lmOut + phIn - phOut,
-    totalBeli:  beli,
-    totalJual:  jual,
-    profit:     jual - beli,
-    count:      list.length,
+    lmStock:       lmIn - lmOut,
+    phStock:       phIn - phOut,
+    totalStock:    lmIn - lmOut + phIn - phOut,
+    totalBeli:     beli,
+    totalJual:     jual,
+    totalBeliTerjual: jual - profit, // HPP = harga pokok barang yang sudah terjual
+    profit,
+    count:         list.length,
   };
 }

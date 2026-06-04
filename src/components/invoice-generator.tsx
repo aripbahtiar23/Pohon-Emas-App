@@ -1,12 +1,13 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { toPng } from "html-to-image";
+import jsPDF from "jspdf";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Share2, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { sharePNG, downloadPNG, canShareFiles } from "@/lib/share";
 import { toast } from "sonner";
 import { formatIDR, formatGr } from "@/lib/goldbook";
@@ -316,6 +317,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
   const { userId } = useAuth();
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  const [customerName, setCustomerName]       = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [customerPhone, setCustomerPhone]     = useState("");
   const [issuedDate, setIssuedDate]           = useState("");
@@ -329,6 +331,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
   useEffect(() => {
     if (!data) return;
     setDownPayment(""); setSaved(false); setInvoiceNumber("");
+    setCustomerName(data?.pembeli || "");
     setCustomerAddress(""); setCustomerPhone(""); setIssuedDate("");
     setBank(loadJSON(BANK_KEY, defaultBank));
     setBrand(loadJSON(BRAND_KEY, defaultBrand));
@@ -350,19 +353,36 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
     setGenerating(true);
     try {
       const num      = await getOrCreateNumber();
-      const filename = `${num.replace(/\//g, "-")}.png`;
-      const dataUrl  = await toPng(canvasRef.current, {
+      const filename = `${num.replace(/\//g, "-")}.pdf`;
+
+      // Capture canvas sebagai PNG
+      const dataUrl = await toPng(canvasRef.current, {
         width: 1122, height: 793, canvasWidth: 1122, canvasHeight: 793,
         pixelRatio: 2, cacheBust: true, backgroundColor: "#fcf0e7",
       });
+
+      // Buat PDF landscape A4
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      // A4 landscape: 297 × 210 mm
+      pdf.addImage(dataUrl, "PNG", 0, 0, 297, 210);
+
+      const pdfBlob = pdf.output("blob");
+
+      // Coba share PDF
       if (canShareFiles()) {
-        const shared = await sharePNG({ dataUrl, filename, title: `Invoice ${num}`, text: `Invoice ${data.pembeli || "pelanggan"} — ${num}` });
-        if (shared) toast.success("Invoice berhasil dibagikan!");
-        else { downloadPNG(dataUrl, filename); toast("Invoice diunduh — attach manual ke WhatsApp."); }
-      } else {
-        downloadPNG(dataUrl, filename);
-        toast.success("Invoice diunduh sebagai gambar.");
+        const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" });
+        try {
+          await navigator.share({ files: [pdfFile], title: `Invoice ${num}`, text: `Invoice ${data.pembeli || "pelanggan"}` });
+          toast.success("Invoice PDF berhasil dibagikan!");
+          return;
+        } catch (e) {
+          if (e instanceof Error && e.name === "AbortError") { setGenerating(false); return; }
+        }
       }
+
+      // Fallback: download PDF
+      pdf.save(filename);
+      toast.success("Invoice PDF diunduh!");
     } catch (err) {
       console.error(err);
       toast.error("Gagal generate invoice. Coba lagi.");
@@ -380,7 +400,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
     invoiceNumber: invoiceNumber || "INV/No.—",
     date: data.date,
     issuedDate: issuedDate || undefined,
-    pembeli: data.pembeli || "",
+    pembeli: customerName || data.pembeli || "",
     customerAddress, customerPhone,
     downPayment: dp, bank, brand, items: data.items,
   };
@@ -440,7 +460,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pelanggan</p>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Nama</Label>
-                  <Input value={data.pembeli || ""} disabled className="text-xs" />
+                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Nama pelanggan" className="text-xs" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Alamat</Label>
@@ -498,8 +518,8 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                 </div>
                 <Button onClick={handleShare} disabled={generating}
                   className="w-full bg-gradient-gold text-gold-foreground hover:opacity-90 shadow-gold">
-                  {generating ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Share2 className="size-4 mr-2" />}
-                  {generating ? "Generating..." : "Bagikan Invoice"}
+                  {generating ? <Loader2 className="size-4 mr-2 animate-spin" /> : <FileText className="size-4 mr-2" />}
+                  {generating ? "Generating..." : "Download / Bagikan PDF"}
                 </Button>
               </div>
 

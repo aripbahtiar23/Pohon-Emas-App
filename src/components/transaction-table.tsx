@@ -291,8 +291,11 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
     <>
       <div className="rounded-xl border border-border bg-card shadow-soft">
         <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 border-b border-border">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-semibold tracking-tight">{title}</h3>
+          {/* Row 1: judul */}
+          <h3 className="font-semibold tracking-tight">{title}</h3>
+
+          {/* Row 2: filter tabs kiri + search kanan — sejajar */}
+          <div className="flex items-center justify-between gap-3">
             <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
               <TabsList className="w-full sm:w-auto">
                 <TabsTrigger value="all" className="flex-1 sm:flex-none">Semua</TabsTrigger>
@@ -300,16 +303,15 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi" }: Pr
                 <TabsTrigger value="perhiasan" className="flex-1 sm:flex-none">Perhiasan</TabsTrigger>
               </TabsList>
             </Tabs>
-          </div>
-          {/* Search pembeli */}
-          <div className="relative max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Cari nama pembeli atau asal barang..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-8 text-sm"
-            />
+            <div className="relative w-48 sm:w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Cari pembeli / asal..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-8 text-sm"
+              />
+            </div>
           </div>
         </div>
 

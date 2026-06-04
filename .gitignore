@@ -24,6 +24,7 @@ public/assets/
 public/index.html
 
 .env.scraper
+.env.scraper.dev
 logs/
 
 # Environment variables

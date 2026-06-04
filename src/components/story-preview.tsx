@@ -43,9 +43,9 @@ const SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif";
 const SANS = "'Montserrat', 'Inter', system-ui, sans-serif";
 
 const formatIDR = (digits: string) => {
-  if (!digits) return "IDR 0";
+  if (!digits) return "Rp 0";
   const n = Number(digits.replace(/\D/g, "")) || 0;
-  return "IDR " + n.toLocaleString("id-ID");
+  return "Rp " + n.toLocaleString("id-ID");
 };
 
 const formatDateID = (iso: string) => {

@@ -174,7 +174,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
         </div>
 
         {/* Desktop header — kolom harus persis sama dengan row grid */}
-        <div className="hidden sm:grid grid-cols-[24px_1fr_72px_1.4fr_64px] gap-2 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="hidden sm:grid grid-cols-[24px_1fr_72px_2fr_64px] gap-2 px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           <span /><span>Berat</span><span>Unit</span><span>Harga</span><span />
         </div>
 
@@ -361,11 +361,10 @@ const SortableRow = ({ row, onWeight, onUnit, onPrice, onDelete, onDuplicate, on
           <SelectContent>{UNIT_OPTIONS.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
         </Select>
         <div className="relative flex-1 min-w-0">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground pointer-events-none">Rp</span>
           <Input
             inputMode="numeric"
-            placeholder="0"
-            className="pl-6 h-8 text-xs min-w-0"
+            placeholder="Harga"
+            className="h-8 text-[11px] min-w-0 px-2"
             value={formatThousand(row.price)}
             onChange={(e) => onPrice(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } }}
@@ -377,7 +376,7 @@ const SortableRow = ({ row, onWeight, onUnit, onPrice, onDelete, onDuplicate, on
       </div>
 
       {/* Desktop — grid kolom persis sama dengan header */}
-      <div className="hidden sm:grid grid-cols-[24px_1fr_72px_1.4fr_64px] gap-2 items-center">
+      <div className="hidden sm:grid grid-cols-[24px_1fr_72px_2fr_64px] gap-2 items-center">
         <button type="button" {...attributes} {...listeners} className="w-6 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing touch-none" aria-label="Drag row">
           <GripVertical className="w-4 h-4" />
         </button>
@@ -388,7 +387,7 @@ const SortableRow = ({ row, onWeight, onUnit, onPrice, onDelete, onDuplicate, on
         </Select>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
-          <Input ref={priceRef} inputMode="numeric" placeholder="1.125.000" className="pl-9" value={formatThousand(row.price)} onChange={(e) => onPrice(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } }} />
+          <Input ref={priceRef} inputMode="numeric" placeholder="1.125.000" className="pl-9 text-sm" value={formatThousand(row.price)} onChange={(e) => onPrice(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onEnter(); } }} />
         </div>
         <div className="flex items-center w-16">
           <Button type="button" variant="ghost" size="icon" onClick={onDuplicate} className="h-8 w-8 text-muted-foreground hover:text-foreground" aria-label="Duplikat">

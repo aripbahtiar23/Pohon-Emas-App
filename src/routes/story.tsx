@@ -118,8 +118,22 @@ function StoryGenerator() {
   const handleAutoFillPrice = async () => {
     const result = await fetchAndFill();
     if (!result) { toast.error("Gagal mengambil harga."); return; }
-    setData((prev) => ({ ...prev, rows: result.rows }));
-    toast.success(`Harga dari ${result.data.source} berhasil diisi!`);
+
+    const movement = result.data.movement;
+    setData((prev) => ({
+      ...prev,
+      rows: result.rows,
+      productType: "Antam Redmark",
+      ...(movement != null && movement !== 0 ? {
+        movementDirection: movement > 0 ? "up" : "down",
+        movementValue: String(Math.abs(movement)),
+      } : { movementValue: "" }),
+    }));
+
+    const movMsg = movement != null && movement !== 0
+      ? ` · ${movement > 0 ? "Naik" : "Turun"} Rp ${Math.abs(movement).toLocaleString("id-ID")}`
+      : "";
+    toast.success(`Harga dari ${result.data.source} berhasil diisi!${movMsg}`);
   };
 
   const handleReset = () => {
