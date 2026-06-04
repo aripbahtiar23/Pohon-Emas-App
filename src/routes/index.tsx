@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { AppShell } from "@/components/app-shell";
 import { TransactionTable } from "@/components/transaction-table";
 import { useTransactions } from "@/hooks/use-transactions";
-import { formatGr, formatIDR, summarize, fetchAvailableStock, type Transaction } from "@/lib/goldbook";
+import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity } from "lucide-react";
@@ -72,16 +72,21 @@ function Dashboard() {
   const s = summarize(filteredTx, tx);
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
-  const [availableStock, setAvailable]  = useState<Transaction[]>([]);
-  const [hargaTanggal, setHargaTanggal]     = useState("");
+  const [hargaTanggal, setHargaTanggal] = useState("");
+
+  // Derived dari tx realtime — update otomatis saat ada transaksi baru
+  const availableStock = useMemo(() => {
+    const soldIds = new Set(
+      tx.filter(t => t.type === "keluar" && t.sourceId).map(t => t.sourceId!)
+    );
+    return tx.filter(t => t.type === "masuk" && !soldIds.has(t.id));
+  }, [tx]);
   const [harga1grHariIni, setHarga1grHariIni] = useState<number | null>(null);
   const [harga1grKemarin, setHarga1grKemarin] = useState<number | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-
-    fetchAvailableStock(userId).then((s) => { if (!cancelled) setAvailable(s); }).catch(() => {});
 
     (async () => {
       try {
