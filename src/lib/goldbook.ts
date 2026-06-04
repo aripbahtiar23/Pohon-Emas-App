@@ -99,6 +99,7 @@ export async function insertTx(userId: string, tx: Omit<Transaction, "id">): Pro
 export async function removeBatch(batchId: string): Promise<void> {
   const { error } = await supabase.from("transactions").delete().eq("batch_id", batchId);
   if (error) throw error;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("goldbook:update"));
 }
 
 export async function removeTx(id: string): Promise<void> {
