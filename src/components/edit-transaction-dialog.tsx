@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
+import { supabase } from "@/lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +36,7 @@ interface Props {
 }
 
 export function EditTransactionDialog({ tx, open, onClose }: Props) {
+  const { userId } = useAuth();
   const [fields, setFields] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -81,10 +84,32 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
         await patchTx(tx.id, { harga, pembeli: fields.pembeli.trim() || undefined, date });
       } else if (tx.category === "logam_mulia") {
         const gramasi = parseFloat(fields.gramasi);
+        if (!fields.noSeri?.trim()) return toast.error("No Seri wajib diisi");
         if (!gramasi) return toast.error("Gramasi wajib diisi");
+        // Cek SN duplikat — hanya blokir kalau SN masih ada di stok (belum terjual), exclude tx ini sendiri
+        const { data: existingMasuk } = await supabase
+          .from("transactions")
+          .select("id")
+          .eq("user_id", userId ?? "")
+          .eq("type", "masuk")
+          .eq("category", "logam_mulia")
+          .eq("no_seri", fields.noSeri.trim())
+          .neq("id", tx.id);
+        if (existingMasuk && existingMasuk.length > 0) {
+          const masukIds = existingMasuk.map((m) => m.id);
+          const { data: soldOnes } = await supabase
+            .from("transactions")
+            .select("source_id")
+            .eq("user_id", userId ?? "")
+            .eq("type", "keluar")
+            .in("source_id", masukIds);
+          const soldIds = new Set((soldOnes ?? []).map((s) => s.source_id));
+          const hasUnsold = masukIds.some((id) => !soldIds.has(id));
+          if (hasUnsold) return toast.error(`No Seri "${fields.noSeri.trim()}" masih ada di stok`);
+        }
         await patchTx(tx.id, {
           namaProduct: fields.namaProduct, gramasi,
-          noSeri: fields.noSeri.trim() || undefined, harga,
+          noSeri: fields.noSeri.trim(), harga,
           nomerRef: fields.nomerRef.trim() || undefined,
           asalBarang: fields.asalBarang.trim() || undefined, date,
         });
@@ -145,7 +170,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {tx.type === "masuk" && tx.category === "logam_mulia" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Nama Product</Label>
+                <Label>Nama Product <span className="text-destructive">*</span></Label>
                 <Select value={fields.namaProduct} onValueChange={(v) => set("namaProduct", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -154,20 +179,20 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Gramasi (gr)</Label>
+                <Label>Gramasi (gr) <span className="text-destructive">*</span></Label>
                 <Input type="number" step="0.001" value={fields.gramasi}
                   onChange={(e) => set("gramasi", e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>No Seri</Label>
+                <Label>No Seri <span className="text-destructive">*</span></Label>
                 <Input value={fields.noSeri} onChange={(e) => set("noSeri", e.target.value)} placeholder="Serial number" />
               </div>
               <div className="space-y-2">
-                <Label>Nomer REF</Label>
+                <Label>Nomer REF <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.nomerRef} onChange={(e) => set("nomerRef", e.target.value)} placeholder="Reference number" />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Asal Barang</Label>
+                <Label>Asal Barang <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.asalBarang} onChange={(e) => set("asalBarang", e.target.value)} placeholder="Dibeli dari / sumber barang" />
               </div>
             </div>
@@ -177,7 +202,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {tx.type === "masuk" && tx.category === "perhiasan" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Karat</Label>
+                <Label>Karat <span className="text-destructive">*</span></Label>
                 <Select value={fields.karat} onValueChange={(v) => set("karat", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -186,16 +211,16 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Gramasi (gr)</Label>
+                <Label>Gramasi (gr) <span className="text-destructive">*</span></Label>
                 <Input type="number" step="0.001" value={fields.gramasi}
                   onChange={(e) => set("gramasi", e.target.value)} />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Kode</Label>
+                <Label>Kode <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.kode} onChange={(e) => set("kode", e.target.value)} placeholder="Kode perhiasan" />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Asal Barang</Label>
+                <Label>Asal Barang <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.asalBarang} onChange={(e) => set("asalBarang", e.target.value)} placeholder="Dibeli dari / sumber barang" />
               </div>
             </div>
@@ -204,7 +229,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {/* Shared editable fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>{hargaLabel}</Label>
+              <Label>{hargaLabel} <span className="text-destructive">*</span></Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
                 <Input
@@ -220,14 +245,14 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
 
             {tx.type === "keluar" && (
               <div className="space-y-2">
-                <Label>Nama Pembeli</Label>
+                <Label>Nama Pembeli <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.pembeli} onChange={(e) => set("pembeli", e.target.value)}
                   placeholder="Nama pembeli (opsional)" />
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Tanggal</Label>
+              <Label>Tanggal <span className="text-destructive">*</span></Label>
               <DatePicker value={fields.tanggal} onChange={(v) => set("tanggal", v)} />
             </div>
           </div>

@@ -349,7 +349,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
         </div>
 
         {/* Mobile card list */}
-        <div className="md:hidden p-3 space-y-3">
+        <div className="sm:hidden p-3 space-y-3">
           {loading && <div className="text-center py-12 text-muted-foreground">Memuat...</div>}
           {!loading && list.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">Belum ada transaksi.</div>
@@ -433,7 +433,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block overflow-x-auto -mx-px">
+        <div className="hidden sm:block overflow-x-auto -mx-px">
           <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr className="text-left">

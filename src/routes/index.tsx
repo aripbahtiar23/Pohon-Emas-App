@@ -7,8 +7,9 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, X, Info, ShoppingCart } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
 
@@ -29,17 +30,34 @@ function getHargaForItem(gramasi: number, list: HargaRow[]): number {
   return 0;
 }
 
-function Stat({ label, value, sub, icon: Icon, accent }: {
+function InfoTip({ text, accent }: { text: string; accent?: boolean }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="shrink-0 focus:outline-none">
+          <Info className={`size-3.5 ${accent ? "text-gold-foreground/60" : "text-muted-foreground/60"}`} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="max-w-[230px] text-xs leading-relaxed p-3 w-auto">
+        {text}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Stat({ label, value, sub, icon: Icon, accent, tooltip }: {
   label: string; value: string; sub?: string;
   icon: React.ComponentType<{ className?: string }>; accent?: boolean;
+  tooltip?: string;
 }) {
   return (
     <div className={`rounded-xl border border-border p-3 md:p-5 shadow-soft ${accent ? "bg-gradient-gold text-gold-foreground border-transparent" : "bg-card"}`}>
-      <div className="flex items-center justify-between">
-        <span className={`text-sm ${accent ? "text-gold-foreground/80" : "text-muted-foreground"}`}>{label}</span>
-        <div className={`size-9 rounded-lg flex items-center justify-center ${accent ? "bg-black/10" : "bg-accent"}`}>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${accent ? "bg-black/10" : "bg-accent"}`}>
           <Icon className={`size-4 ${accent ? "text-gold-foreground" : "text-gold-deep"}`} />
         </div>
+        <span className={`text-[11px] sm:text-sm leading-tight ${accent ? "text-gold-foreground/80" : "text-muted-foreground"}`}>{label}</span>
+        {tooltip && <InfoTip text={tooltip} accent={accent} />}
       </div>
       <div className={`mt-2 md:mt-3 font-semibold tracking-tight tabular-nums ${
         value.length > 18 ? "text-sm md:text-base" :
@@ -78,14 +96,40 @@ function Dashboard() {
   // Stok: semua transaksi s/d AKHIR periode filter (akumulasi historis)
   // Bukan hanya transaksi dalam periode — ini mencegah stok minus cross-period
   const stockTx = useMemo(() => {
-    if (filterYear === "all") return tx;
-    const month = filterMonth !== "all" ? Number(filterMonth) : 12;
-    const year  = Number(filterYear);
-    const endDate = new Date(year, month, 0, 23, 59, 59); // hari terakhir bulan
-    return tx.filter(t => new Date(t.date) <= endDate);
-  }, [tx, filterYear, filterMonth]);
+    let base = tx;
+    if (filterYear !== "all") {
+      const month = filterMonth !== "all" ? Number(filterMonth) : 12;
+      const year  = Number(filterYear);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+      base = base.filter(t => new Date(t.date) <= endDate);
+    }
+    if (filterCat !== "all") {
+      base = base.filter(t => t.category === filterCat);
+    }
+    return base;
+  }, [tx, filterYear, filterMonth, filterCat]);
 
   const sStock = summarize(stockTx);
+
+  // HPP = harga beli barang terjual (berdasarkan No Seri) + biaya jual per transaksi
+  const hpp = useMemo(() => {
+    const masukMap = new Map(tx.filter(t => t.type === "masuk").map(t => [t.id, t]));
+    let total = 0;
+    for (const t of filteredTx) {
+      if (t.type !== "keluar") continue;
+      if (t.sourceId) {
+        const masuk = masukMap.get(t.sourceId);
+        if (masuk?.noSeri) total += masuk.harga;
+      }
+      if (t.notes) {
+        const m = t.notes.match(/biaya_jual:(\d+)/);
+        if (m) total += parseInt(m[1]);
+      }
+    }
+    return total;
+  }, [tx, filteredTx]);
+
+  const keuntungan = s.totalJual - hpp;
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
   const [hargaTanggal, setHargaTanggal] = useState("");
@@ -146,7 +190,7 @@ function Dashboard() {
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Ringkasan Stok & Keuangan</h1>
 
           {/* Filter kanan — 1 baris fleksibel */}
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <Select value={filterCat} onValueChange={(v) => setFilterCat(v as typeof filterCat)}>
               <SelectTrigger className="flex-1 min-w-0 sm:w-[130px] sm:flex-none h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -187,25 +231,41 @@ function Dashboard() {
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-        <Stat label="Total Stok" value={formatGr(Math.max(0, sStock.totalStock))} icon={Scale} accent />
-        <Stat label="Stok Logam Mulia" value={formatGr(Math.max(0, sStock.lmStock))} icon={Coins} />
-        <Stat label="Stok Perhiasan" value={formatGr(Math.max(0, sStock.phStock))} icon={Gem} />
-        <Stat label="Keuntungan" value={formatIDR(s.profit)} icon={TrendingUp} />
+        <Stat label="Total Stok" value={formatGr(Math.max(0, sStock.totalStock))} icon={Scale} accent
+          tooltip="Total gramasi emas yang kamu miliki. Dihitung dari semua barang masuk dikurangi yang sudah terjual." />
+        <Stat label="Stok Logam Mulia" value={formatGr(Math.max(0, sStock.lmStock))} icon={Coins}
+          tooltip="Gramasi logam mulia yang masih kamu pegang dan belum terjual." />
+        <Stat label="Stok Perhiasan" value={formatGr(Math.max(0, sStock.phStock))} icon={Gem}
+          tooltip="Gramasi perhiasan yang masih kamu pegang dan belum terjual." />
+        <Stat label="Keuntungan" value={formatIDR(keuntungan)} icon={TrendingUp}
+          tooltip="Total bersih pendapatan dari barang yang sudah dijual dikurangi Harga Pokok Penjualan." />
       </div>
 
-      {/* Total Pembelian + Penjualan */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
+      {/* Total Modal + HPP + Total Penjualan */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft flex flex-col">
-          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-            <ArrowDownToLine className="size-4 text-success" /> Total Modal
+          <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+            <ArrowDownToLine className="size-4 text-success shrink-0" />
+            <span>Total Modal</span>
+            <InfoTip text="Total uang yang kamu keluarkan untuk membeli barang, termasuk stok yang belum terjual." />
           </div>
-          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalBeli).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalBeli).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(s.totalBeli)}</div>
+          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalBeli).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalBeli).length > 14 ? "text-base md:text-xl" : "text-2xl md:text-3xl"}`}>{formatIDR(s.totalBeli)}</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft flex flex-col">
-          <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-            <ArrowUpFromLine className="size-4 text-gold-deep" /> Total Penjualan
+          <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+            <ShoppingCart className="size-4 text-gold-deep shrink-0" />
+            <span>Harga Pokok Penjualan</span>
+            <InfoTip text="Modal barang yang sudah terjual ditambah biaya jual. Ini adalah biaya nyata untuk barang yang sudah keluar." />
           </div>
-          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalJual).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalJual).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(s.totalJual)}</div>
+          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(hpp).length > 18 ? "text-sm md:text-base" : formatIDR(hpp).length > 14 ? "text-base md:text-xl" : "text-2xl md:text-3xl"}`}>{formatIDR(hpp)}</div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-soft flex flex-col">
+          <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
+            <ArrowUpFromLine className="size-4 text-gold-deep shrink-0" />
+            <span>Total Penjualan</span>
+            <InfoTip text="Total uang yang masuk dari semua penjualan emas." />
+          </div>
+          <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(s.totalJual).length > 18 ? "text-sm md:text-base" : formatIDR(s.totalJual).length > 14 ? "text-base md:text-xl" : "text-2xl md:text-3xl"}`}>{formatIDR(s.totalJual)}</div>
         </div>
       </div>
 
@@ -213,8 +273,10 @@ function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Landmark className="size-4 text-gold-deep" /> Total Aset
+            <div className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground">
+              <Landmark className="size-4 text-gold-deep shrink-0" />
+              <span>Total Aset</span>
+              <InfoTip text="Perkiraan nilai semua emas yang kamu miliki sekarang, berdasarkan harga pasar hari ini." />
             </div>
             <Link to="/harga" className="text-xs text-primary hover:underline">Lihat harga →</Link>
           </div>
@@ -236,8 +298,8 @@ function Dashboard() {
 
         <div className="rounded-xl border border-border bg-card p-4 md:p-5 shadow-soft">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Activity className="size-4 text-gold-deep" /> Pergerakan Harga Emas Hari Ini
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+              <Activity className="size-4 text-gold-deep shrink-0" /> Pergerakan Harga Emas Hari Ini
             </div>
             <Link to="/harga" className="text-xs text-primary hover:underline">Detail →</Link>
           </div>

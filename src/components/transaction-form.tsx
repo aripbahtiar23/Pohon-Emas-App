@@ -64,8 +64,29 @@ function MasukForm() {
     if (!userId) return;
     const gramasi = parseFloat(lm.gramasi);
     const harga = parseRupiah(lm.harga);
+    if (!lm.noSeri.trim()) return toast.error("No Seri wajib diisi");
     if (!gramasi || !harga) return toast.error("Gramasi dan harga wajib diisi");
     try {
+      // Cek SN duplikat hanya untuk stok yang belum terjual
+      const { data: existingMasuk } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("type", "masuk")
+        .eq("category", "logam_mulia")
+        .eq("no_seri", lm.noSeri.trim());
+      if (existingMasuk && existingMasuk.length > 0) {
+        const masukIds = existingMasuk.map((m) => m.id);
+        const { data: soldOnes } = await supabase
+          .from("transactions")
+          .select("source_id")
+          .eq("user_id", userId)
+          .eq("type", "keluar")
+          .in("source_id", masukIds);
+        const soldIds = new Set((soldOnes ?? []).map((s) => s.source_id));
+        const hasUnsold = masukIds.some((id) => !soldIds.has(id));
+        if (hasUnsold) return toast.error(`No Seri "${lm.noSeri.trim()}" masih ada di stok`);
+      }
       await insertTx(userId, {
         type: "masuk",
         category: "logam_mulia",
@@ -118,7 +139,7 @@ function MasukForm() {
       <TabsContent value="logam_mulia">
         <form onSubmit={submitLm} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <Label>Nama Product</Label>
+            <Label>Nama Product <span className="text-destructive">*</span></Label>
             <Select value={lm.namaProduct} onValueChange={(v) => setLm({ ...lm, namaProduct: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -127,28 +148,28 @@ function MasukForm() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Gramasi (gr)</Label>
+            <Label>Gramasi (gr) <span className="text-destructive">*</span></Label>
             <Input type="number" step="0.001" value={lm.gramasi}
               onChange={(e) => setLm({ ...lm, gramasi: e.target.value })} placeholder="contoh: 5" />
           </div>
           <div className="space-y-2">
-            <Label>No Seri</Label>
+            <Label>No Seri <span className="text-destructive">*</span></Label>
             <Input value={lm.noSeri} onChange={(e) => setLm({ ...lm, noSeri: e.target.value })} placeholder="Serial number" />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>Nomer REF</Label>
+            <Label>Nomer REF <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input value={lm.nomerRef} onChange={(e) => setLm({ ...lm, nomerRef: e.target.value })} placeholder="Reference number" />
           </div>
           <div className="space-y-2">
-            <Label>Asal Barang</Label>
+            <Label>Asal Barang <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input value={lm.asalBarang} onChange={(e) => setLm({ ...lm, asalBarang: e.target.value })} placeholder="Dibeli dari / sumber barang" />
           </div>
           <div className="space-y-2">
-            <Label>Tanggal Pembelian</Label>
+            <Label>Tanggal Pembelian <span className="text-destructive">*</span></Label>
             <DatePicker value={lm.tanggal} onChange={(v) => setLm({ ...lm, tanggal: v })} />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>Harga Beli</Label>
+            <Label>Harga Beli <span className="text-destructive">*</span></Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
               <Input type="text" inputMode="numeric" value={lm.harga}
@@ -167,7 +188,7 @@ function MasukForm() {
       <TabsContent value="perhiasan">
         <form onSubmit={submitPh} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <Label>Karat</Label>
+            <Label>Karat <span className="text-destructive">*</span></Label>
             <Select value={ph.karat} onValueChange={(v) => setPh({ ...ph, karat: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -176,24 +197,24 @@ function MasukForm() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Gramasi (gr)</Label>
+            <Label>Gramasi (gr) <span className="text-destructive">*</span></Label>
             <Input type="number" step="0.001" value={ph.gramasi}
               onChange={(e) => setPh({ ...ph, gramasi: e.target.value })} placeholder="contoh: 3.5" />
           </div>
           <div className="space-y-2">
-            <Label>Kode</Label>
+            <Label>Kode <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input value={ph.kode} onChange={(e) => setPh({ ...ph, kode: e.target.value })} placeholder="Kode perhiasan" />
           </div>
           <div className="space-y-2">
-            <Label>Asal Barang</Label>
+            <Label>Asal Barang <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input value={ph.asalBarang} onChange={(e) => setPh({ ...ph, asalBarang: e.target.value })} placeholder="Dibeli dari / sumber barang" />
           </div>
           <div className="space-y-2">
-            <Label>Tanggal Pembelian</Label>
+            <Label>Tanggal Pembelian <span className="text-destructive">*</span></Label>
             <DatePicker value={ph.tanggal} onChange={(v) => setPh({ ...ph, tanggal: v })} />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label>Harga Beli</Label>
+            <Label>Harga Beli <span className="text-destructive">*</span></Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
               <Input type="text" inputMode="numeric" value={ph.harga}
@@ -287,6 +308,8 @@ function SaleForm() {
   const [items, setItems] = useState<SaleItem[]>([emptyRow()]);
   const [pembeli, setPembeli] = useState("");
   const [tanggal, setTanggal] = useState(todayStr());
+  const [biayaJual, setBiayaJual] = useState("");
+  const [keteranganBiaya, setKeteranganBiaya] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -315,10 +338,16 @@ function SaleForm() {
   const totalGramasi = resolvedItems.reduce((sum, { stock: s }) => sum + (s?.gramasi ?? 0), 0);
   const totalNilai = resolvedItems.reduce((sum, { item }) => sum + (parseRupiah(item.harga) || 0), 0);
   const validCount = resolvedItems.filter(({ item, stock: s }) => s && parseRupiah(item.harga) > 0).length;
+  const biayaJualNum = parseRupiah(biayaJual) || 0;
+  const totalHargaJual = totalNilai + biayaJualNum;
+  const totalHPP = resolvedItems.reduce((sum, { item, stock: s }) =>
+    sum + (s && parseRupiah(item.harga) > 0 ? s.harga : 0), 0);
+  const keuntunganTx = totalHargaJual - totalHPP;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userId) return;
+    if (!pembeli.trim()) return toast.error("Nama pembeli wajib diisi");
     const invalid = resolvedItems.find(({ item, stock: s }) => !s || !parseRupiah(item.harga));
     if (invalid) return toast.error("Semua baris harus diisi barang dan harga jual");
     setSubmitting(true);
@@ -340,10 +369,17 @@ function SaleForm() {
           sourceId: s!.id,
           pembeli: pembeli.trim() || undefined,
           batchId,
+          notes: (() => {
+            const parts: string[] = [];
+            if (biayaJualNum > 0) parts.push(`biaya_jual:${biayaJualNum}`);
+            if (keteranganBiaya.trim()) parts.push(`ket:${keteranganBiaya.trim()}`);
+            return parts.length ? parts.join("|") : undefined;
+          })(),
         })
       ));
       toast.success(`${resolvedItems.length} barang berhasil dicatat`);
       setItems([emptyRow()]); setPembeli(""); setTanggal(todayStr());
+      setBiayaJual(""); setKeteranganBiaya("");
     } catch {
       toast.error("Gagal menyimpan. Coba lagi.");
     } finally {
@@ -420,38 +456,65 @@ function SaleForm() {
         )}
       </div>
 
-      {/* Summary total */}
+      {/* Shared fields */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <Label>Nama Pembeli <span className="text-destructive">*</span></Label>
+          <Input value={pembeli} onChange={(e) => setPembeli(e.target.value)} placeholder="Nama pembeli" />
+        </div>
+        <div className="space-y-2">
+          <Label>Tanggal Penjualan <span className="text-destructive">*</span></Label>
+          <DatePicker value={tanggal} onChange={setTanggal} />
+        </div>
+      </div>
+
+      {/* Biaya jual */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="space-y-2">
+          <Label>Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
+            <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
+              value={biayaJual}
+              onChange={(e) => setBiayaJual(formatRupiah(e.target.value))} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Keterangan Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+          <Input value={keteranganBiaya} onChange={(e) => setKeteranganBiaya(e.target.value)} placeholder="mis. ongkos kirim, komisi, dll" />
+        </div>
+      </div>
+
+      {/* Ringkasan penjualan */}
       {validCount > 0 && (
         <div className="rounded-lg border border-border bg-gradient-to-r from-card to-muted/30 p-4">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Ringkasan Penjualan</p>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-2xl font-semibold">{validCount}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Total Barang</p>
+          <div className="flex flex-col sm:flex-row sm:text-center gap-2 sm:gap-3">
+            <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0">
+              <p className="text-xs text-muted-foreground sm:mb-1">Jumlah Barang</p>
+              <p className="text-xl font-semibold">{validCount}</p>
             </div>
-            <div>
-              <p className="text-2xl font-semibold">{formatGr(totalGramasi)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Total Gramasi</p>
+            <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
+              <p className="text-xs text-muted-foreground sm:mb-1">Total Gramasi</p>
+              <p className="text-xl font-semibold">{formatGr(totalGramasi)}</p>
             </div>
-            <div>
-              <p className="text-lg font-semibold text-primary">{formatIDR(totalNilai)}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Total Nilai Jual</p>
+            {biayaJualNum > 0 && (
+              <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
+                <p className="text-xs text-muted-foreground sm:mb-1">Biaya Jual</p>
+                <p className={`font-semibold ${formatIDR(biayaJualNum).length > 17 ? "text-sm" : formatIDR(biayaJualNum).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(biayaJualNum)}</p>
+              </div>
+            )}
+            <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
+              <p className="text-xs text-muted-foreground sm:mb-1">Total Harga Jual</p>
+              <p className={`font-semibold text-primary ${formatIDR(totalHargaJual).length > 17 ? "text-sm" : formatIDR(totalHargaJual).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(totalHargaJual)}</p>
+            </div>
+            <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
+              <p className="text-xs text-muted-foreground sm:mb-1">Keuntungan</p>
+              <p className={`font-semibold ${keuntunganTx >= 0 ? "text-success" : "text-destructive"} ${formatIDR(keuntunganTx).length > 17 ? "text-sm" : formatIDR(keuntunganTx).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(keuntunganTx)}</p>
             </div>
           </div>
         </div>
       )}
-
-      {/* Shared fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="space-y-2">
-          <Label>Nama Pembeli</Label>
-          <Input value={pembeli} onChange={(e) => setPembeli(e.target.value)} placeholder="Nama pembeli (opsional)" />
-        </div>
-        <div className="space-y-2">
-          <Label>Tanggal Penjualan</Label>
-          <DatePicker value={tanggal} onChange={setTanggal} />
-        </div>
-      </div>
 
       <div className="flex justify-end pt-2">
         <Button type="submit" size="lg" disabled={submitting} className="bg-gradient-gold text-gold-foreground hover:opacity-90 shadow-elegant">

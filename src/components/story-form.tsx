@@ -104,7 +104,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
         <h3 className="font-serif text-lg font-semibold">Quick Setup</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="productType">Produk</Label>
+            <Label htmlFor="productType">Produk <span className="text-destructive">*</span></Label>
             <Select value={data.productType} onValueChange={(v) => update("productType", v)}>
               <SelectTrigger id="productType" className="w-full">
                 <SelectValue placeholder="Pilih produk" />
@@ -115,7 +115,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="date">Tanggal</Label>
+            <Label htmlFor="date">Tanggal <span className="text-destructive">*</span></Label>
             <Input id="date" type="date" value={data.date} onChange={(e) => update("date", e.target.value)} />
           </div>
         </div>
@@ -123,7 +123,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
         {/* Movement — grid-cols-2 equal width, toggle buttons fill full width */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label>Pergerakan</Label>
+            <Label>Pergerakan <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <div className="flex rounded-md border border-input overflow-hidden h-10">
               <button
                 type="button"
@@ -146,7 +146,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="movementValue">Nilai</Label>
+            <Label htmlFor="movementValue">Nilai <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
               <Input
@@ -273,15 +273,15 @@ export const StoryForm = ({ data, onChange }: Props) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="brandName">Nama Brand</Label>
+            <Label htmlFor="brandName">Nama Brand <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input id="brandName" placeholder="POHON EMAS" value={data.brandName} maxLength={40} onChange={(e) => update("brandName", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="subBrand">Sub Brand</Label>
+            <Label htmlFor="subBrand">Sub Brand <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input id="subBrand" placeholder="By Camilla" value={data.subBrand} maxLength={40} onChange={(e) => update("subBrand", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="city">Lokasi</Label>
+            <Label htmlFor="city">Lokasi <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input id="city" placeholder="Jakarta" value={data.city} maxLength={40} onChange={(e) => update("city", e.target.value)} />
           </div>
           <div className="space-y-2">
@@ -296,7 +296,7 @@ export const StoryForm = ({ data, onChange }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="title">Headline</Label>
+            <Label htmlFor="title">Headline <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Input id="title" placeholder="Harga Emas Hari Ini" value={data.title} maxLength={50} onChange={(e) => update("title", e.target.value)} />
           </div>
         </CollapsibleContent>
@@ -311,11 +311,11 @@ export const StoryForm = ({ data, onChange }: Props) => {
         <CollapsibleContent className="px-4 pb-4 space-y-4">
           {/* Catatan Harga — textarea agar tidak terpotong */}
           <div className="space-y-2">
-            <Label htmlFor="priceNote">Catatan Harga</Label>
+            <Label htmlFor="priceNote">Catatan Harga <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Textarea id="priceNote" placeholder="Harga dapat berubah sewaktu-waktu" value={data.priceNote} maxLength={80} rows={2} onChange={(e) => update("priceNote", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="disclaimer">Disclaimer</Label>
+            <Label htmlFor="disclaimer">Disclaimer <span className="text-muted-foreground font-normal">(opsional)</span></Label>
             <Textarea id="disclaimer" placeholder="Disclaimer tambahan" value={data.disclaimer} maxLength={160} rows={2} onChange={(e) => update("disclaimer", e.target.value)} />
           </div>
         </CollapsibleContent>
