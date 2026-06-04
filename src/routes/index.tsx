@@ -7,7 +7,7 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, X, Info, ShoppingCart } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, RotateCcw, Info, ShoppingCart } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -223,7 +223,7 @@ function Dashboard() {
             {(filterCat !== "all" || filterYear !== "all") && (
               <button type="button" onClick={() => { setFilterCat("all"); setFilterYear("all"); setFilterMonth("all"); }}
                 className="h-9 w-9 flex items-center justify-center rounded-md border border-input bg-background hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0">
-                <X className="size-4" />
+                <RotateCcw className="size-4" />
               </button>
             )}
           </div>

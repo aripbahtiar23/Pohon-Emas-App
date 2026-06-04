@@ -76,6 +76,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
     const harga = parseRupiah(fields.harga);
     if (!harga) return toast.error("Harga wajib diisi");
     const date = new Date(fields.tanggal + "T00:00:00").toISOString();
