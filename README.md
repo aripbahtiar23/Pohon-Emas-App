@@ -10,9 +10,9 @@ Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar 
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| Dashboard | Stat cards, filter Kategori/Tahun/Bulan, Keuntungan, Total Modal, Total Aset, Pergerakan Harga |
-| Barang Masuk | Form pembelian LM & perhiasan + filter tanggal di riwayat |
-| Barang Keluar | Form penjualan multi-item, cari stok dengan search, filter tanggal |
+| Dashboard | Stat cards + HPP, filter Kategori/Tahun/Bulan, Keuntungan, Total Modal, Total Aset, Pergerakan Harga. Tooltip di setiap card. |
+| Barang Masuk | Form pembelian LM & perhiasan. No Seri wajib & unik per stok aktif. Filter tanggal di riwayat. |
+| Barang Keluar | Form penjualan multi-item, cari stok dengan search, Biaya Jual opsional, Ringkasan Penjualan lengkap, filter tanggal |
 | Riwayat | Search pembeli/asal, tabs filter, filter tanggal, generate invoice |
 | Invoice | PDF landscape A4, brand custom, share WhatsApp |
 | Generator Story | Pricelist PNG 1080×1920px, auto-fill harga dari logammulia.com |
@@ -100,10 +100,20 @@ npm run dev
 
 | Metric | Formula |
 |--------|---------|
-| Keuntungan | Total Penjualan − Total Modal (periode filter) |
-| Total Modal | Semua masuk (termasuk stok belum terjual) |
-| Total Stok | Kumulatif masuk − keluar s/d akhir periode (tidak bisa minus) |
+| Keuntungan | Total Penjualan − HPP |
+| HPP (Harga Pokok Penjualan) | Harga beli barang terjual (berdasarkan No Seri) + biaya jual per transaksi |
+| Total Modal | Semua masuk termasuk stok belum terjual |
+| Total Penjualan | Σ harga jual per item keluar (tidak termasuk biaya jual) |
+| Total Stok | Kumulatif masuk − keluar s/d akhir periode + filter kategori (tidak bisa minus) |
 | Total Aset | Stok tersedia × harga per gramasi dari logammulia.com |
+
+### Biaya Jual
+Disimpan di kolom `notes` dengan format `biaya_jual:50000|ket:keterangan`. HPP dashboard mem-parse nilai ini dari setiap transaksi keluar.
+
+### No Seri (Logam Mulia)
+- Wajib diisi saat mencatat barang masuk LM
+- Unik per user — tidak boleh ada dua stok aktif dengan SN sama
+- Re-buy dengan SN sama diizinkan jika barang sebelumnya sudah terjual
 
 ---
 
