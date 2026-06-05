@@ -38,16 +38,22 @@ interface Props {
 export function EditTransactionDialog({ tx, open, onClose }: Props) {
   const { userId } = useAuth();
   const [fields, setFields] = useState<Record<string, string>>({});
+  const [entryType, setEntryType] = useState<"beli" | "stok_awal">("beli");
 
   useEffect(() => {
     if (!tx) return;
     if (tx.type === "keluar") {
+      const biayaVal = parseInt(tx.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+      const ketVal = tx.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
       setFields({
         harga: formatRupiah(String(tx.harga)),
         pembeli: tx.pembeli ?? "",
         tanggal: toDateInput(tx.date),
+        biayaJual: biayaVal > 0 ? formatRupiah(String(biayaVal)) : "",
+        keteranganBiaya: ketVal,
       });
     } else if (tx.category === "logam_mulia") {
+      setEntryType(tx.notes?.includes("entry_type:stok_awal") ? "stok_awal" : "beli");
       setFields({
         namaProduct: tx.namaProduct ?? PRODUK_LM[0],
         gramasi: String(tx.gramasi),
@@ -82,7 +88,15 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
     const date = new Date(fields.tanggal + "T00:00:00").toISOString();
     try {
       if (tx.type === "keluar") {
-        await patchTx(tx.id, { harga, pembeli: fields.pembeli.trim() || undefined, date });
+        const biayaNum = parseRupiah(fields.biayaJual) || 0;
+        const ket = fields.keteranganBiaya?.trim() ?? "";
+        const parts: string[] = [];
+        if (biayaNum > 0) parts.push(`biaya_jual:${biayaNum}`);
+        if (ket) parts.push(`ket:${ket}`);
+        await patchTx(tx.id, {
+          harga, pembeli: fields.pembeli.trim() || undefined, date,
+          notes: parts.length ? parts.join("|") : "",
+        });
       } else if (tx.category === "logam_mulia") {
         const gramasi = parseFloat(fields.gramasi);
         if (!fields.noSeri?.trim()) return toast.error("No Seri wajib diisi");
@@ -113,6 +127,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           noSeri: fields.noSeri.trim(), harga,
           nomerRef: fields.nomerRef.trim() || undefined,
           asalBarang: fields.asalBarang.trim() || undefined, date,
+          notes: entryType === "stok_awal" ? "entry_type:stok_awal" : "",
         });
       } else {
         const gramasi = parseFloat(fields.gramasi);
@@ -170,6 +185,40 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {/* Masuk LM fields */}
           {tx.type === "masuk" && tx.category === "logam_mulia" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Jenis Pencatatan <span className="text-destructive">*</span></Label>
+                <div className="flex rounded-md border border-input overflow-hidden h-10">
+                  <button type="button" onClick={() => setEntryType("beli")}
+                    className={`flex-1 text-sm transition-colors ${entryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
+                    Ganti Stok
+                  </button>
+                  <button type="button" onClick={() => setEntryType("stok_awal")}
+                    className={`flex-1 text-sm border-l border-input transition-colors ${entryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
+                    Tambah Stok
+                  </button>
+                </div>
+                <div className="rounded-lg border border-border/50 bg-transparent px-4 py-3 flex gap-4">
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-medium text-foreground">Ganti Stok</p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                      <li>Emas dibeli setelah melakukan penjualan</li>
+                      <li>Gramasi sesuai dengan yang sudah dijual</li>
+                      <li>Harga beli masuk Keuntungan Ganti Emas</li>
+                      <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
+                    </ul>
+                  </div>
+                  <div className="w-px bg-border/40 shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-medium text-foreground">Tambah Stok</p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                      <li>Emas yang kamu miliki atau beli untuk menambah stok saat ini</li>
+                      <li>Tidak perlu sama gramasinya dengan yang dijual</li>
+                      <li>Harga beli masuk perhitungan HPP di dashboard</li>
+                      <li>Mempengaruhi Keuntungan HPP di dashboard</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Nama Product <span className="text-destructive">*</span></Label>
                 <Select value={fields.namaProduct} onValueChange={(v) => set("namaProduct", v)}>
@@ -248,7 +297,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
               <div className="space-y-2">
                 <Label>Nama Pembeli <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <Input value={fields.pembeli} onChange={(e) => set("pembeli", e.target.value)}
-                  placeholder="Nama pembeli (opsional)" />
+                  placeholder="Nama pembeli" />
               </div>
             )}
 
@@ -257,6 +306,26 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
               <DatePicker value={fields.tanggal} onChange={(v) => set("tanggal", v)} />
             </div>
           </div>
+
+          {tx.type === "keluar" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
+                  <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
+                    value={fields.biayaJual ?? ""}
+                    onChange={(e) => set("biayaJual", formatRupiah(e.target.value))} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Keterangan Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+                <Input value={fields.keteranganBiaya ?? ""}
+                  onChange={(e) => set("keteranganBiaya", e.target.value)}
+                  placeholder="mis. ongkos kirim, komisi, dll" />
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Batal</Button>

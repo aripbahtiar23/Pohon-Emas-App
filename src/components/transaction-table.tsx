@@ -9,7 +9,7 @@ import { formatRupiah, parseRupiah } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil, ChevronLeft, ChevronRight, Search, FileText, X } from "lucide-react";
+import { Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil, ChevronLeft, ChevronRight, Search, FileText, X, Eye } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -30,7 +30,7 @@ type SingleRow  = { kind: "single"; tx: Transaction };
 type BatchRow   = { kind: "batch";  batchId: string; txs: Transaction[]; date: string; totalGramasi: number; totalHarga: number; pembeli?: string };
 type DisplayRow = SingleRow | BatchRow;
 
-function DesktopBatchRow({ row, onEdit, onDelete, onInvoice }: { row: BatchRow; onEdit: (r: BatchRow) => void; onDelete: (t: Transaction) => void; onInvoice: (r: BatchRow) => void }) {
+function DesktopBatchRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar }: { row: BatchRow; onEdit: (r: BatchRow) => void; onDelete: (t: Transaction) => void; onInvoice: (r: BatchRow) => void; onDetail: (r: BatchRow) => void; isKeluar?: boolean }) {
   const allLM = row.txs.every((t) => t.category === "logam_mulia");
   const allPH = row.txs.every((t) => t.category === "perhiasan");
   const catLabel = allLM ? "Logam Mulia" : allPH ? "Perhiasan" : "Campuran";
@@ -39,28 +39,28 @@ function DesktopBatchRow({ row, onEdit, onDelete, onInvoice }: { row: BatchRow; 
       <td className="px-6 py-3 whitespace-nowrap text-muted-foreground">
         {new Date(row.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
       </td>
-      <td className="px-4 py-3"><Badge variant="default">Keluar</Badge></td>
+      {!isKeluar && <td className="px-4 py-3"><Badge variant="default">Keluar</Badge></td>}
       <td className="px-4 py-3 text-muted-foreground">{catLabel}</td>
-      <td className="px-4 py-3">
-        <div className="space-y-0.5">
-          {row.txs.map((t) => (
-            <div key={t.id}>
-              <div className="font-medium text-sm">{t.category === "logam_mulia" ? t.namaProduct : (t.kode || "Perhiasan")}</div>
-              <div className="text-xs text-muted-foreground">
-                {t.category === "logam_mulia" ? formatGr(t.gramasi) : `${t.karat} · ${formatGr(t.gramasi)}`}
-                {t.noSeri ? ` · SN ${t.noSeri}` : ""}
+      {!isKeluar && (
+        <td className="px-4 py-3">
+          <div className="space-y-0.5">
+            {row.txs.map((t) => (
+              <div key={t.id}>
+                <div className="font-medium text-sm">{t.category === "logam_mulia" ? t.namaProduct : (t.kode || "Perhiasan")}</div>
+                <div className="text-xs text-muted-foreground">{t.category === "logam_mulia" ? formatGr(t.gramasi) : `${t.karat} · ${formatGr(t.gramasi)}`}{t.noSeri ? ` · SN ${t.noSeri}` : ""}</div>
               </div>
-            </div>
-          ))}
-        </div>
-      </td>
+            ))}
+          </div>
+        </td>
+      )}
       <td className="px-4 py-3 text-sm text-muted-foreground">{row.pembeli || "—"}</td>
-      <td className="px-4 py-3 text-right tabular-nums">{formatGr(row.totalGramasi)}</td>
-      <td className="px-4 py-3 text-right tabular-nums font-medium">{formatIDR(row.totalHarga)}</td>
+      {isKeluar && <td className="px-4 py-3 tabular-nums">{row.txs.length}</td>}
+      <td className="px-4 py-3 tabular-nums">{formatGr(row.totalGramasi)}</td>
+      <td className="px-4 py-3 tabular-nums font-medium">{formatIDR(row.totalHarga)}</td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="icon" title="Invoice" onClick={() => onInvoice(row)}>
-            <FileText className="size-4 text-muted-foreground" />
+          <Button variant="ghost" size="icon" title="Detail" onClick={() => onDetail(row)}>
+            <Eye className="size-4 text-muted-foreground" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => onEdit(row)}>
             <Pencil className="size-4 text-muted-foreground" />
@@ -74,50 +74,52 @@ function DesktopBatchRow({ row, onEdit, onDelete, onInvoice }: { row: BatchRow; 
   );
 }
 
-function DesktopSingleRow({ row, onEdit, onDelete, onInvoice }: { row: SingleRow; onEdit: (t: Transaction) => void; onDelete: (t: Transaction) => void; onInvoice: (t: Transaction) => void }) {
+function DesktopSingleRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar }: { row: SingleRow; onEdit: (t: Transaction) => void; onDelete: (t: Transaction) => void; onInvoice: (t: Transaction) => void; onDetail: (t: Transaction) => void; isKeluar?: boolean }) {
   const t = row.tx;
   return (
     <tr className="border-t border-border hover:bg-muted/30">
       <td className="px-6 py-3 whitespace-nowrap text-muted-foreground">
         {new Date(t.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
       </td>
-      <td className="px-4 py-3">
-        <Badge variant={t.type === "masuk" ? "secondary" : "default"}>
-          {t.type === "masuk" ? "Masuk" : "Keluar"}
-        </Badge>
-      </td>
+      {!isKeluar && (
+        <td className="px-4 py-3">
+          <Badge variant={t.type === "masuk" ? "secondary" : "default"}>
+            {t.type === "masuk" ? "Masuk" : "Keluar"}
+          </Badge>
+        </td>
+      )}
       <td className="px-4 py-3 text-muted-foreground">{t.category === "logam_mulia" ? "Logam Mulia" : "Perhiasan"}</td>
-      <td className="px-4 py-3">
-        {t.category === "logam_mulia" ? (
-          <div>
-            <div className="font-medium">{t.namaProduct}</div>
-            <div className="text-xs text-muted-foreground">
-              {t.noSeri ? `SN ${t.noSeri}` : ""}{t.nomerRef ? ` · REF ${t.nomerRef}` : ""}
-              {t.type === "masuk" && t.asalBarang ? ` · Dari: ${t.asalBarang}` : ""}
+      {!isKeluar && (
+        <td className="px-4 py-3">
+          {t.category === "logam_mulia" ? (
+            <div>
+              <div className="font-medium">{t.namaProduct}</div>
+              <div className="text-xs text-muted-foreground">
+                {t.noSeri ? `SN ${t.noSeri}` : ""}{t.nomerRef ? ` · REF ${t.nomerRef}` : ""}
+                {t.type === "masuk" && t.asalBarang ? ` · Dari: ${t.asalBarang}` : ""}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div>
-            <div className="font-medium">{t.kode || "—"}</div>
-            <div className="text-xs text-muted-foreground">
-              {t.karat}
-              {t.type === "masuk" && t.asalBarang ? ` · Dari: ${t.asalBarang}` : ""}
+          ) : (
+            <div>
+              <div className="font-medium">{t.kode || "—"}</div>
+              <div className="text-xs text-muted-foreground">{t.karat}{t.type === "masuk" && t.asalBarang ? ` · Dari: ${t.asalBarang}` : ""}</div>
             </div>
-          </div>
-        )}
-      </td>
+          )}
+        </td>
+      )}
       <td className="px-4 py-3 text-sm text-muted-foreground">
         {t.type === "keluar" && t.pembeli && <div className="font-medium text-foreground">{t.pembeli}</div>}
         {t.type === "masuk" && t.asalBarang && <div>{t.asalBarang}</div>}
         {!t.pembeli && !t.asalBarang && <span>—</span>}
       </td>
-      <td className="px-4 py-3 text-right tabular-nums">{formatGr(t.gramasi)}</td>
-      <td className="px-4 py-3 text-right tabular-nums font-medium">{formatIDR(t.harga)}</td>
+      {isKeluar && <td className="px-4 py-3 tabular-nums">1</td>}
+      <td className="px-4 py-3 tabular-nums">{formatGr(t.gramasi)}</td>
+      <td className="px-4 py-3 tabular-nums font-medium">{formatIDR(t.harga)}</td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
           {t.type === "keluar" && (
-            <Button variant="ghost" size="icon" title="Invoice" onClick={() => onInvoice(t)}>
-              <FileText className="size-4 text-muted-foreground" />
+            <Button variant="ghost" size="icon" title="Detail" onClick={() => onDetail(t)}>
+              <Eye className="size-4 text-muted-foreground" />
             </Button>
           )}
           <Button variant="ghost" size="icon" onClick={() => onEdit(t)}>
@@ -248,26 +250,35 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Transaction | null>(null);
   const [batchEditTarget, setBatchEditTarget] = useState<BatchRow | null>(null);
+  const [batchDetailTarget, setBatchDetailTarget] = useState<BatchRow | null>(null);
   const [invoiceData, setInvoiceData] = useState<InvoiceGeneratorData | null>(null);
   const [intDateFrom, setIntDateFrom] = useState("");
   const [intDateTo, setIntDateTo]     = useState("");
   const filterDateFrom = extDateFrom ?? (showDateFilter ? intDateFrom : undefined);
   const filterDateTo   = extDateTo   ?? (showDateFilter ? intDateTo   : undefined);
 
+  const parseBiaya = (notes?: string) => parseInt(notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+
   const openInvoiceSingle = (t: Transaction) => setInvoiceData({
     transactionIds: [t.id],
     date: t.date,
     pembeli: t.pembeli,
+    biayaLain: parseBiaya(t.notes),
     items: [{ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga }],
   });
 
-  const openInvoiceBatch = (row: BatchRow) => setInvoiceData({
-    transactionIds: row.txs.map((t) => t.id),
-    date: row.date,
-    pembeli: row.pembeli,
-    items: row.txs.map((t) => ({ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga })),
-  });
+  const openInvoiceBatch = (row: BatchRow) => {
+    const firstWithNotes = row.txs.find(t => t.notes);
+    setInvoiceData({
+      transactionIds: row.txs.map((t) => t.id),
+      date: row.date,
+      pembeli: row.pembeli,
+      biayaLain: parseBiaya(firstWithNotes?.notes),
+      items: row.txs.map((t) => ({ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga })),
+    });
+  };
 
   let filtered: Transaction[] = all;
   if (filterType) filtered = filtered.filter((t) => t.type === filterType);
@@ -368,8 +379,8 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
                       <div className="text-xs text-muted-foreground whitespace-nowrap mr-1">
                         {new Date(row.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
                       </div>
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openInvoiceBatch(row)}>
-                        <FileText className="size-3.5 text-muted-foreground" />
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => setBatchDetailTarget(row)}>
+                        <Eye className="size-3.5 text-muted-foreground" />
                       </Button>
                       <Button variant="ghost" size="icon" className="size-8" onClick={() => setBatchEditTarget(row)}>
                         <Pencil className="size-3.5 text-muted-foreground" />
@@ -407,8 +418,8 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
                       {new Date(t.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
                     </div>
                     {t.type === "keluar" && (
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openInvoiceSingle(t)}>
-                        <FileText className="size-3.5 text-muted-foreground" />
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => setDetailTarget(t)}>
+                        <Eye className="size-3.5 text-muted-foreground" />
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" className="size-8" onClick={() => setEditTarget(t)}>
@@ -438,27 +449,28 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             <thead className="bg-muted/50 text-muted-foreground">
               <tr className="text-left">
                 <th className="px-6 py-3 font-medium">Tanggal</th>
-                <th className="px-4 py-3 font-medium">Tipe</th>
+                {filterType !== "keluar" && <th className="px-4 py-3 font-medium">Tipe</th>}
                 <th className="px-4 py-3 font-medium">Kategori</th>
-                <th className="px-4 py-3 font-medium">Detail</th>
-                <th className="px-4 py-3 font-medium">Pembeli / Asal</th>
-                <th className="px-4 py-3 font-medium text-right">Gramasi</th>
-                <th className="px-4 py-3 font-medium text-right">Harga</th>
+                {filterType !== "keluar" && <th className="px-4 py-3 font-medium">Detail</th>}
+                <th className="px-4 py-3 font-medium">{filterType === "keluar" ? "Pembeli" : "Pembeli / Asal"}</th>
+                {filterType === "keluar" && <th className="px-4 py-3 font-medium">QTY</th>}
+                <th className="px-4 py-3 font-medium">Gramasi</th>
+                <th className="px-4 py-3 font-medium">Harga</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={filterType === "keluar" ? 8 : 9} className="text-center py-12 text-muted-foreground">
                     Belum ada transaksi.
                   </td>
                 </tr>
               )}
               {list.map((row) =>
                 row.kind === "batch"
-                  ? <DesktopBatchRow key={row.batchId} row={row} onEdit={setBatchEditTarget} onDelete={setDeleteTarget} onInvoice={openInvoiceBatch} />
-                  : <DesktopSingleRow key={row.tx.id} row={row} onEdit={setEditTarget} onDelete={setDeleteTarget} onInvoice={openInvoiceSingle} />
+                  ? <DesktopBatchRow key={row.batchId} row={row} onEdit={setBatchEditTarget} onDelete={setDeleteTarget} onInvoice={openInvoiceBatch} onDetail={setBatchDetailTarget} isKeluar={filterType === "keluar"} />
+                  : <DesktopSingleRow key={row.tx.id} row={row} onEdit={setEditTarget} onDelete={setDeleteTarget} onInvoice={openInvoiceSingle} onDetail={setDetailTarget} isKeluar={filterType === "keluar"} />
               )}
             </tbody>
           </table>
@@ -524,6 +536,165 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
         open={!!invoiceData}
         onClose={() => setInvoiceData(null)}
       />
+
+      {/* Detail dialog - masuk & keluar */}
+      <Dialog open={!!detailTarget} onOpenChange={(v) => !v && setDetailTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Detail Barang {detailTarget?.type === "masuk" ? "Masuk" : "Keluar"} — {detailTarget?.category === "logam_mulia" ? "Logam Mulia" : "Perhiasan"}
+            </DialogTitle>
+          </DialogHeader>
+          {detailTarget && (() => {
+            const t = detailTarget;
+            const isMasuk = t.type === "masuk";
+            const masukSrc = !isMasuk && t.sourceId ? all.find(m => m.id === t.sourceId) : null;
+            const biayaJual = parseInt(t.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+            const keterangan = t.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
+            const keuntunganItem = isMasuk ? null : t.harga - (masukSrc?.harga ?? 0) - biayaJual;
+
+            const Row = ({ label, value, mono }: { label: string; value: string; mono?: boolean }) => (
+              <div className="flex items-center justify-between py-2 border-b border-border">
+                <span className="text-sm text-muted-foreground">{label}</span>
+                <span className={`text-sm font-medium text-right ${mono ? "font-mono" : ""}`}>{value}</span>
+              </div>
+            );
+
+            return (
+              <div className="space-y-0 pt-1">
+                {isMasuk && (
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <span className="text-sm text-muted-foreground">Jenis Pencatatan</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.notes?.includes("entry_type:stok_awal") ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"}`}>
+                      {t.notes?.includes("entry_type:stok_awal") ? "Tambah Stok" : "Ganti Stok"}
+                    </span>
+                  </div>
+                )}
+                <Row label="Tanggal" value={new Date(t.date).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })} />
+                {!isMasuk && t.pembeli && <Row label="Pembeli" value={t.pembeli} />}
+                {t.category === "logam_mulia" && <Row label="Nama Product" value={t.namaProduct || "—"} />}
+                {t.category === "logam_mulia" && <Row label="No Seri" value={t.noSeri || "—"} mono />}
+                {t.category === "logam_mulia" && t.nomerRef && <Row label="Nomer REF" value={t.nomerRef} />}
+                {t.category === "perhiasan" && <Row label="Karat" value={t.karat || "—"} />}
+                {t.category === "perhiasan" && t.kode && <Row label="Kode" value={t.kode} />}
+                <Row label="Gramasi" value={formatGr(t.gramasi)} />
+                {isMasuk && <Row label="Harga Beli" value={formatIDR(t.harga)} />}
+                {isMasuk && t.asalBarang && <Row label="Asal Barang" value={t.asalBarang} />}
+                {!isMasuk && masukSrc && <Row label="Harga Beli Asal" value={formatIDR(masukSrc.harga)} />}
+                {!isMasuk && <Row label="Harga Jual" value={formatIDR(t.harga)} />}
+                {!isMasuk && biayaJual > 0 && <Row label="Biaya Jual" value={formatIDR(biayaJual)} />}
+                {!isMasuk && keterangan && <Row label="Keterangan" value={keterangan} />}
+                {!isMasuk && keuntunganItem !== null && (
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <span className="text-sm text-muted-foreground">Keuntungan</span>
+                    <span className={`text-sm font-semibold ${keuntunganItem >= 0 ? "text-success" : "text-destructive"}`}>{formatIDR(keuntunganItem)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2">
+            {detailTarget?.type === "keluar" && (
+              <Button variant="outline" className="flex items-center gap-2" onClick={() => { openInvoiceSingle(detailTarget); setDetailTarget(null); }}>
+                <FileText className="size-4" /> Invoice
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setDetailTarget(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail dialog - batch keluar */}
+      <Dialog open={!!batchDetailTarget} onOpenChange={(v) => !v && setBatchDetailTarget(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Detail Barang Keluar — {batchDetailTarget?.txs.length} Item</DialogTitle>
+          </DialogHeader>
+          {batchDetailTarget && (() => {
+            const row = batchDetailTarget;
+            const masukMap = new Map(all.filter(t => t.type === "masuk").map(t => [t.id, t]));
+            const firstWithNotes = row.txs.find(t => t.notes);
+            const biayaTrx = parseInt(firstWithNotes?.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+            const ketTrx = firstWithNotes?.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
+            const totalHargaBeli = row.txs.reduce((sum, t) => sum + (t.sourceId ? (masukMap.get(t.sourceId)?.harga ?? 0) : 0), 0);
+            const totalHargaJual = row.totalHarga + biayaTrx;
+            const keuntunganBersih = row.totalHarga - totalHargaBeli;
+            return (
+              <>
+                <div className="overflow-y-auto flex-1 pr-1">
+                  <div className="space-y-4 pt-1">
+                    <div className="flex items-center justify-between py-2 border-b border-border">
+                      <span className="text-sm text-muted-foreground">Tanggal</span>
+                      <span className="text-sm font-medium">{new Date(row.date).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}</span>
+                    </div>
+                    {row.pembeli && (
+                      <div className="flex items-center justify-between py-2 border-b border-border">
+                        <span className="text-sm text-muted-foreground">Pembeli</span>
+                        <span className="text-sm font-medium">{row.pembeli}</span>
+                      </div>
+                    )}
+                    {biayaTrx > 0 && (
+                      <div className="flex items-center justify-between py-2 border-b border-border">
+                        <span className="text-sm text-muted-foreground">Biaya Jual</span>
+                        <span className="text-sm font-medium">{formatIDR(biayaTrx)}</span>
+                      </div>
+                    )}
+                    {ketTrx && (
+                      <div className="flex items-center justify-between py-2 border-b border-border">
+                        <span className="text-sm text-muted-foreground">Keterangan</span>
+                        <span className="text-sm font-medium text-right max-w-[60%]">{ketTrx}</span>
+                      </div>
+                    )}
+                    {row.txs.map((t, i) => {
+                      const masuk = t.sourceId ? masukMap.get(t.sourceId) : null;
+                      const untungKotor = t.harga - (masuk?.harga ?? 0);
+                      return (
+                        <div key={t.id} className="rounded-lg border border-border p-3 space-y-2">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Barang {i + 1}</div>
+                          {t.category === "logam_mulia" ? (
+                            <>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Produk</span><span className="font-medium">{t.namaProduct}</span></div>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">No Seri</span><span className="font-medium font-mono">{t.noSeri || "—"}</span></div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Karat</span><span className="font-medium">{t.karat}</span></div>
+                              {t.kode && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Kode</span><span className="font-medium">{t.kode}</span></div>}
+                            </>
+                          )}
+                          <div className="flex justify-between text-sm"><span className="text-muted-foreground">Gramasi</span><span className="font-medium">{formatGr(t.gramasi)}</span></div>
+                          {masuk && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Harga Beli Asal</span><span className="font-medium">{formatIDR(masuk.harga)}</span></div>}
+                          <div className="flex justify-between text-sm"><span className="text-muted-foreground">Harga Jual</span><span className="font-medium">{formatIDR(t.harga)}</span></div>
+                          <div className="flex justify-between text-sm pt-1 border-t border-border">
+                            <span className="text-muted-foreground">Selisih Jual-Beli</span>
+                            <span className={`font-semibold ${untungKotor >= 0 ? "text-success" : "text-destructive"}`}>{formatIDR(untungKotor)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-1 pt-2 border-t-2 border-border">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold">Total Harga Jual</span>
+                    <span className="font-semibold">{formatIDR(totalHargaJual)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Keuntungan Bersih</span>
+                    <span className={`font-semibold ${keuntunganBersih >= 0 ? "text-success" : "text-destructive"}`}>{formatIDR(keuntunganBersih)}</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          <DialogFooter className="gap-2 pt-2 border-t border-border">
+            <Button variant="outline" className="flex items-center gap-2" onClick={() => { openInvoiceBatch(batchDetailTarget!); setBatchDetailTarget(null); }}>
+              <FileText className="size-4" /> Invoice
+            </Button>
+            <Button variant="outline" onClick={() => setBatchDetailTarget(null)}>Tutup</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dialog - single */}
       <EditTransactionDialog

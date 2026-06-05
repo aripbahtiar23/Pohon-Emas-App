@@ -111,25 +111,38 @@ function Dashboard() {
 
   const sStock = summarize(stockTx);
 
-  // HPP = harga beli barang terjual (berdasarkan No Seri) + biaya jual per transaksi
-  const hpp = useMemo(() => {
+  const { hpp, totalBeliEmasTerjual, totalBiayaJualKeluar } = useMemo(() => {
     const masukMap = new Map(tx.filter(t => t.type === "masuk").map(t => [t.id, t]));
-    let total = 0;
+    let hppTotal = 0, beliEmas = 0, biayaJual = 0;
     for (const t of filteredTx) {
       if (t.type !== "keluar") continue;
-      if (t.sourceId) {
-        const masuk = masukMap.get(t.sourceId);
-        if (masuk?.noSeri) total += masuk.harga;
-      }
+      // Biaya jual dari notes
       if (t.notes) {
         const m = t.notes.match(/biaya_jual:(\d+)/);
-        if (m) total += parseInt(m[1]);
+        if (m) { const b = parseInt(m[1]); hppTotal += b; biayaJual += b; }
+      }
+      // Harga beli dari masuk
+      if (t.sourceId) {
+        const masuk = masukMap.get(t.sourceId);
+        if (masuk) {
+          const isTambahStok = masuk.notes?.includes("entry_type:stok_awal");
+          if (isTambahStok) {
+            // Tambah Stok → masuk HPP
+            if (masuk.noSeri) hppTotal += masuk.harga;
+          } else {
+            // Ganti Stok → masuk Keuntungan Ganti Emas
+            beliEmas += masuk.harga;
+          }
+        }
       }
     }
-    return total;
+    return { hpp: hppTotal, totalBeliEmasTerjual: beliEmas, totalBiayaJualKeluar: biayaJual };
   }, [tx, filteredTx]);
 
-  const keuntungan = s.totalJual - hpp;
+  // Keuntungan Ganti Emas = Total Penjualan - (Total Beli Emas Terjual + Biaya Jual)
+  const keuntunganBeliEmas = s.totalJual - totalBeliEmasTerjual - totalBiayaJualKeluar;
+  // Keuntungan HPP = Total Penjualan - HPP
+  const keuntunganHPP = s.totalJual - hpp;
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
   const [hargaTanggal, setHargaTanggal] = useState("");
@@ -230,15 +243,19 @@ function Dashboard() {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4">
         <Stat label="Total Stok" value={formatGr(Math.max(0, sStock.totalStock))} icon={Scale} accent
           tooltip="Total gramasi emas yang kamu miliki. Dihitung dari semua barang masuk dikurangi yang sudah terjual." />
         <Stat label="Stok Logam Mulia" value={formatGr(Math.max(0, sStock.lmStock))} icon={Coins}
           tooltip="Gramasi logam mulia yang masih kamu pegang dan belum terjual." />
         <Stat label="Stok Perhiasan" value={formatGr(Math.max(0, sStock.phStock))} icon={Gem}
           tooltip="Gramasi perhiasan yang masih kamu pegang dan belum terjual." />
-        <Stat label="Keuntungan" value={formatIDR(keuntungan)} icon={TrendingUp}
-          tooltip="Total bersih pendapatan dari barang yang sudah dijual dikurangi Harga Pokok Penjualan." />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6 md:mb-8">
+        <Stat label="Keuntungan Ganti Emas" value={formatIDR(keuntunganBeliEmas)} icon={TrendingUp}
+          tooltip="Keuntungan dari transaksi Ganti Stok — total penjualan dikurangi harga beli emas yang diganti dan biaya jual." />
+        <Stat label="Keuntungan HPP" value={formatIDR(keuntunganHPP)} icon={TrendingUp}
+          tooltip="Keuntungan dari transaksi Tambah Stok — total penjualan dikurangi Harga Pokok Penjualan (HPP) dan biaya jual." />
       </div>
 
       {/* Total Modal + HPP + Total Penjualan */}

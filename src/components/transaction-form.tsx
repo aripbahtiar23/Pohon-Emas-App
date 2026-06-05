@@ -40,6 +40,8 @@ const KARAT_OPTIONS = ["24K", "22K", "21K", "18K", "14K", "10K"];
 function MasukForm() {
   const { userId } = useAuth();
 
+  const [lmEntryType, setLmEntryType] = useState<"beli" | "stok_awal">("beli");
+
   const [lm, setLm] = useState({
     namaProduct: PRODUK_LM[0] as string,
     gramasi: "",
@@ -97,9 +99,11 @@ function MasukForm() {
         harga,
         nomerRef: lm.nomerRef || undefined,
         asalBarang: lm.asalBarang.trim() || undefined,
+        notes: lmEntryType === "stok_awal" ? "entry_type:stok_awal" : undefined,
       });
       toast.success("Barang masuk dicatat");
       setLm({ ...lm, gramasi: "", noSeri: "", harga: "", nomerRef: "", asalBarang: "", tanggal: todayStr() });
+      setLmEntryType("beli");
     } catch {
       toast.error("Gagal menyimpan. Coba lagi.");
     }
@@ -138,6 +142,41 @@ function MasukForm() {
 
       <TabsContent value="logam_mulia">
         <form onSubmit={submitLm} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Jenis Pencatatan */}
+          <div className="md:col-span-2 space-y-2">
+            <Label>Jenis Pencatatan <span className="text-destructive">*</span></Label>
+            <div className="flex rounded-md border border-input overflow-hidden h-10">
+              <button type="button" onClick={() => setLmEntryType("beli")}
+                className={`flex-1 text-sm transition-colors ${lmEntryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
+                Ganti Stok
+              </button>
+              <button type="button" onClick={() => setLmEntryType("stok_awal")}
+                className={`flex-1 text-sm border-l border-input transition-colors ${lmEntryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
+                Tambah Stok
+              </button>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-transparent px-4 py-3 flex gap-4">
+              <div className="flex-1 space-y-1">
+                <p className="text-xs font-medium text-foreground">Ganti Stok</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                  <li>Emas dibeli setelah melakukan penjualan</li>
+                  <li>Gramasi sesuai dengan yang sudah dijual</li>
+                  <li>Harga beli masuk Keuntungan Ganti Emas</li>
+                  <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
+                </ul>
+              </div>
+              <div className="w-px bg-border/40 shrink-0" />
+              <div className="flex-1 space-y-1">
+                <p className="text-xs font-medium text-foreground">Tambah Stok</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                  <li>Emas yang kamu miliki atau beli untuk menambah stok saat ini</li>
+                  <li>Tidak perlu sama gramasinya dengan yang dijual</li>
+                  <li>Harga beli masuk perhitungan HPP di dashboard</li>
+                  <li>Mempengaruhi Keuntungan HPP di dashboard</li>
+                </ul>
+              </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Nama Product <span className="text-destructive">*</span></Label>
             <Select value={lm.namaProduct} onValueChange={(v) => setLm({ ...lm, namaProduct: v })}>
@@ -354,7 +393,7 @@ function SaleForm() {
     try {
       const date = new Date(tanggal + "T00:00:00").toISOString();
       const batchId = resolvedItems.length > 1 ? crypto.randomUUID() : undefined;
-      await Promise.all(resolvedItems.map(({ item, stock: s }) =>
+      await Promise.all(resolvedItems.map(({ item, stock: s }, idx) =>
         insertTx(userId, {
           type: "keluar",
           category: s!.category,
@@ -369,12 +408,13 @@ function SaleForm() {
           sourceId: s!.id,
           pembeli: pembeli.trim() || undefined,
           batchId,
-          notes: (() => {
+          // biaya jual hanya disimpan di item pertama (per transaksi, bukan per barang)
+          notes: idx === 0 ? (() => {
             const parts: string[] = [];
             if (biayaJualNum > 0) parts.push(`biaya_jual:${biayaJualNum}`);
             if (keteranganBiaya.trim()) parts.push(`ket:${keteranganBiaya.trim()}`);
             return parts.length ? parts.join("|") : undefined;
-          })(),
+          })() : undefined,
         })
       ));
       toast.success(`${resolvedItems.length} barang berhasil dicatat`);

@@ -33,6 +33,7 @@ export type InvoiceGeneratorData = {
   items: InvoiceItemData[];
   date: string;
   pembeli?: string;
+  biayaLain?: number;
 };
 
 /* ── Canvas 1122 × 793 landscape ─────────────────────────────────────────── */
@@ -45,6 +46,7 @@ interface CanvasProps {
   customerAddress: string;
   customerPhone: string;
   downPayment: number;
+  biayaLain: number;
   bank: BankSettings;
   brand: BrandSettings;
   items: InvoiceItemData[];
@@ -121,9 +123,10 @@ function TreeOfLife() {
   );
 }
 
-function InvoiceCanvas({ invoiceNumber, date, issuedDate, pembeli, customerAddress, customerPhone, downPayment, bank, brand, items }: CanvasProps) {
+function InvoiceCanvas({ invoiceNumber, date, issuedDate, pembeli, customerAddress, customerPhone, downPayment, biayaLain, bank, brand, items }: CanvasProps) {
   const subtotal  = items.reduce((s, i) => s + i.harga, 0);
-  const repayment = subtotal - downPayment;
+  const grandTotal = subtotal + biayaLain;
+  const repayment = grandTotal - downPayment;
 
   const BG    = "#fcf0e7";
   const BROWN = "#5C3D1E";
@@ -238,23 +241,31 @@ function InvoiceCanvas({ invoiceNumber, date, issuedDate, pembeli, customerAddre
         <div style={{ height: 1.5, background: BROWN, marginBottom: 14 }} />
 
         {/* ── Row Bottom: Payment | Thank you | Summary ── */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch" }}>
 
           {/* Payment method */}
-          <div>
-            <div style={{ fontSize: f(9), fontWeight: 700, color: GOLD, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 7 }}>Payment Method</div>
-            <div style={{ fontSize: f(11), color: MUTED, marginBottom: 4 }}>Bank Transfer</div>
-            <div style={{ fontFamily: SERIF, fontSize: f(16), fontWeight: 700, color: BROWN, letterSpacing: "0.04em" }}>{bank.accountNumber || "—"}</div>
-            <div style={{ fontSize: f(11), color: MUTED, marginTop: 2 }}>{bank.bankName || "—"}</div>
-            <div style={{ fontSize: f(11), color: MUTED }}>a.n. {bank.accountHolder || "—"}</div>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: f(9), fontWeight: 700, color: GOLD, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 7 }}>Payment Method</div>
+              <div style={{ fontSize: f(11), color: MUTED, marginBottom: 4 }}>Bank Transfer</div>
+              <div style={{ fontFamily: SERIF, fontSize: f(16), fontWeight: 700, color: BROWN, letterSpacing: "0.04em" }}>{bank.accountNumber || "—"}</div>
+              <div style={{ fontSize: f(11), color: MUTED, marginTop: 2 }}>{bank.bankName || "—"}</div>
+              <div style={{ fontSize: f(11), color: MUTED }}>a.n. {bank.accountHolder || "—"}</div>
+            </div>
+            {biayaLain > 0 && (
+              <div style={{ fontSize: f(9), color: MUTED, lineHeight: 1.5, maxWidth: 260 }}>
+                * Biaya tambahan yang dikenakan saat transaksi (ongkos kirim, biaya jasa, dll)
+              </div>
+            )}
           </div>
 
           {/* Summary + Thank you */}
           <div style={{ minWidth: 230 }}>
             {[
-              { label: "Subtotal",     value: subtotal },
-              { label: "Down Payment", value: downPayment },
-              { label: "Repayment",    value: repayment },
+              { label: "Subtotal",       value: subtotal },
+              ...(biayaLain > 0 ? [{ label: "Biaya Lain *", value: biayaLain }] : []),
+              { label: "Down Payment",   value: downPayment },
+              { label: "Repayment",      value: repayment },
             ].map(({ label, value }) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: f(12), color: MUTED, marginBottom: 3, paddingBottom: 3, borderBottom: `1px solid ${LINE}` }}>
                 <span style={{ marginRight: 40 }}>{label}</span>
@@ -263,7 +274,7 @@ function InvoiceCanvas({ invoiceNumber, date, issuedDate, pembeli, customerAddre
             ))}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, marginBottom: 48 }}>
               <span style={{ fontFamily: SERIF, fontSize: f(18), fontWeight: 700, color: BROWN, marginRight: 40 }}>Total Price</span>
-              <span style={{ fontFamily: SERIF, fontSize: f(18), fontWeight: 900, color: BROWN, fontVariantNumeric: "tabular-nums" }}>{formatIDR(subtotal)}</span>
+              <span style={{ fontFamily: SERIF, fontSize: f(18), fontWeight: 900, color: BROWN, fontVariantNumeric: "tabular-nums" }}>{formatIDR(grandTotal)}</span>
             </div>
             <div style={{ fontFamily: SERIF, fontSize: f(13), fontStyle: "italic", fontWeight: 700, color: GOLD, textAlign: "right" }}>
               Thank you for shopping with us!
@@ -330,9 +341,10 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
 
   useEffect(() => {
     if (!data) return;
-    setDownPayment(""); setSaved(false); setInvoiceNumber("");
+    setSaved(false); setInvoiceNumber("");
     setCustomerName(data?.pembeli || "");
     setCustomerAddress(""); setCustomerPhone(""); setIssuedDate("");
+    setDownPayment("");
     setBank(loadJSON(BANK_KEY, defaultBank));
     setBrand(loadJSON(BRAND_KEY, defaultBrand));
   }, [data]);
@@ -393,8 +405,10 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
 
   if (!data) return null;
 
-  const subtotal = data.items.reduce((s, i) => s + i.harga, 0);
-  const dp = parseRupiah(downPayment) || 0;
+  const subtotal   = data.items.reduce((s, i) => s + i.harga, 0);
+  const dp         = parseRupiah(downPayment) || 0;
+  const biayaNum   = data.biayaLain ?? 0;
+  const grandTotal = subtotal + biayaNum;
 
   const canvasProps: CanvasProps = {
     invoiceNumber: invoiceNumber || "INV/No.—",
@@ -402,7 +416,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
     issuedDate: issuedDate || undefined,
     pembeli: customerName || data.pembeli || "",
     customerAddress, customerPhone,
-    downPayment: dp, bank, brand, items: data.items,
+    downPayment: dp, biayaLain: biayaNum, bank, brand, items: data.items,
   };
 
   return (
@@ -503,7 +517,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                     <Input type="date" value={issuedDate} onChange={(e) => setIssuedDate(e.target.value)} className="text-xs" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Down Payment</Label>
+                    <Label className="text-xs">Down Payment <span className="text-muted-foreground">(opsional)</span></Label>
                     <div className="relative">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
                       <Input inputMode="numeric" placeholder="0" className="pl-8 text-xs"
@@ -513,8 +527,9 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                 </div>
                 <div className="rounded border border-border bg-muted/40 p-2 text-xs space-y-1">
                   <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatIDR(subtotal)}</span></div>
+                  {biayaNum > 0 && <div className="flex justify-between text-muted-foreground"><span>Biaya Lain</span><span>{formatIDR(biayaNum)}</span></div>}
                   <div className="flex justify-between text-muted-foreground"><span>DP</span><span>-{formatIDR(dp)}</span></div>
-                  <div className="flex justify-between font-semibold border-t pt-1 mt-1"><span>Repayment</span><span>{formatIDR(subtotal - dp)}</span></div>
+                  <div className="flex justify-between font-semibold border-t pt-1 mt-1"><span>Total / Repayment</span><span>{formatIDR(grandTotal - dp)}</span></div>
                 </div>
                 <Button onClick={handleShare} disabled={generating}
                   className="w-full bg-gradient-gold text-gold-foreground hover:opacity-90 shadow-gold">
