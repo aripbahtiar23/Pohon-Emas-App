@@ -16,6 +16,7 @@ export interface Transaction {
   type: TxType;
   category: Category;
   date: string;
+  createdAt?: string;
   namaProduct?: string;
   noSeri?: string;
   nomerRef?: string;
@@ -39,6 +40,7 @@ function dbToTx(row: any): Transaction {
     type:        row.type,
     category:    row.category,
     date:        row.date,
+    createdAt:   row.created_at      ?? undefined,
     gramasi:     Number(row.gramasi),
     harga:       Number(row.harga),
     namaProduct: row.nama_product  ?? undefined,
@@ -82,7 +84,7 @@ export async function fetchTx(userId: string): Promise<Transaction[]> {
     .from("transactions")
     .select("*")
     .eq("user_id", userId)
-    .order("date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(dbToTx);
 }

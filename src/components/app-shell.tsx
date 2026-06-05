@@ -65,18 +65,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  const isExpanded = !sidebarCollapsed;
+
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="h-screen flex overflow-hidden bg-background">
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex shrink-0 bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border transition-all duration-200",
-          sidebarCollapsed ? "w-16" : "w-64"
+          "hidden md:flex shrink-0 bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border transition-all duration-200 h-screen",
+          isExpanded ? "w-64" : "w-16"
         )}
       >
         {/* Brand + collapse toggle */}
-        <div className={cn("border-b border-sidebar-border flex items-center", sidebarCollapsed ? "px-2 py-4 justify-center" : "px-4 py-4 justify-between gap-2")}>
-          {!sidebarCollapsed && (
+        <div className={cn("border-b border-sidebar-border flex items-center", !isExpanded ? "px-2 py-4 justify-center" : "px-4 py-4 justify-between gap-2")}>
+          {isExpanded && (
             <div className="flex items-center gap-0 min-w-0">
               <LogoIcon />
               <div className="min-w-0">
@@ -87,10 +89,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
           <button
             aria-label={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
+            title={sidebarCollapsed ? "Buka sidebar" : "Tutup sidebar"}
             onClick={() => setSidebarCollapsed((v) => !v)}
-            className="size-8 shrink-0 inline-flex items-center justify-center rounded-md hover:bg-sidebar-accent/60 transition-colors"
+            className="size-7 shrink-0 inline-flex items-center justify-center rounded-full border border-sidebar-border bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground hover:border-sidebar-primary transition-colors shadow-sm"
           >
-            {sidebarCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            {sidebarCollapsed ? <ChevronRight className="size-3.5" /> : <ChevronLeft className="size-3.5" />}
           </button>
         </div>
 
@@ -102,25 +105,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={to}
                 to={to}
-                title={sidebarCollapsed ? label : undefined}
+                title={!isExpanded ? label : undefined}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors min-h-11",
-                  sidebarCollapsed && "justify-center px-2",
+                  !isExpanded && "justify-center px-2",
                   active
                     ? "bg-sidebar-accent text-sidebar-primary font-medium"
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
                 )}
               >
                 <Icon className="size-4 shrink-0" />
-                {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                {isExpanded && <span className="truncate">{label}</span>}
               </Link>
             );
           })}
         </nav>
 
         {/* User area bottom */}
-        <div className={cn("border-t border-sidebar-border", sidebarCollapsed ? "px-2 py-3 flex justify-center" : "px-4 py-3")}>
-          <UserArea collapsed={sidebarCollapsed} />
+        <div className={cn("border-t border-sidebar-border", !isExpanded ? "px-2 py-3 flex justify-center" : "px-4 py-3")}>
+          <UserArea collapsed={!isExpanded} />
         </div>
       </aside>
 
@@ -185,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 overflow-auto pt-14 md:pt-0 pb-20 md:pb-0">
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0 pb-20 md:pb-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">{children}</div>
       </main>
 

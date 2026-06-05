@@ -36,13 +36,13 @@ function DesktopBatchRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar 
   const catLabel = allLM ? "Logam Mulia" : allPH ? "Perhiasan" : "Campuran";
   return (
     <tr className="border-t border-border hover:bg-muted/30 bg-primary/[0.02]">
-      <td className="px-6 py-3 whitespace-nowrap text-muted-foreground">
+      <td className="px-6 py-2 whitespace-nowrap text-muted-foreground">
         {new Date(row.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
       </td>
-      {!isKeluar && <td className="px-4 py-3"><Badge variant="default">Keluar</Badge></td>}
-      <td className="px-4 py-3 text-muted-foreground">{catLabel}</td>
+      {!isKeluar && <td className="px-4 py-2"><Badge variant="default">Keluar</Badge></td>}
+      <td className="px-4 py-2 text-muted-foreground">{catLabel}</td>
       {!isKeluar && (
-        <td className="px-4 py-3">
+        <td className="px-4 py-2">
           <div className="space-y-0.5">
             {row.txs.map((t) => (
               <div key={t.id}>
@@ -53,11 +53,11 @@ function DesktopBatchRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar 
           </div>
         </td>
       )}
-      <td className="px-4 py-3 text-sm text-muted-foreground">{row.pembeli || "—"}</td>
-      {isKeluar && <td className="px-4 py-3 tabular-nums">{row.txs.length}</td>}
-      <td className="px-4 py-3 tabular-nums">{formatGr(row.totalGramasi)}</td>
-      <td className="px-4 py-3 tabular-nums font-medium">{formatIDR(row.totalHarga)}</td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-2 text-sm text-muted-foreground">{row.pembeli || "—"}</td>
+      {isKeluar && <td className="px-4 py-2 tabular-nums">{row.txs.length}</td>}
+      <td className="px-4 py-2 tabular-nums">{formatGr(row.totalGramasi)}</td>
+      <td className="px-4 py-2 tabular-nums font-medium">{formatIDR(row.totalHarga)}</td>
+      <td className="px-4 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="icon" title="Detail" onClick={() => onDetail(row)}>
             <Eye className="size-4 text-muted-foreground" />
@@ -78,19 +78,19 @@ function DesktopSingleRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar
   const t = row.tx;
   return (
     <tr className="border-t border-border hover:bg-muted/30">
-      <td className="px-6 py-3 whitespace-nowrap text-muted-foreground">
+      <td className="px-6 py-2 whitespace-nowrap text-muted-foreground">
         {new Date(t.date).toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" })}
       </td>
       {!isKeluar && (
-        <td className="px-4 py-3">
+        <td className="px-4 py-2">
           <Badge variant={t.type === "masuk" ? "secondary" : "default"}>
             {t.type === "masuk" ? "Masuk" : "Keluar"}
           </Badge>
         </td>
       )}
-      <td className="px-4 py-3 text-muted-foreground">{t.category === "logam_mulia" ? "Logam Mulia" : "Perhiasan"}</td>
+      <td className="px-4 py-2 text-muted-foreground">{t.category === "logam_mulia" ? "Logam Mulia" : "Perhiasan"}</td>
       {!isKeluar && (
-        <td className="px-4 py-3">
+        <td className="px-4 py-2">
           {t.category === "logam_mulia" ? (
             <div>
               <div className="font-medium">{t.namaProduct}</div>
@@ -107,15 +107,15 @@ function DesktopSingleRow({ row, onEdit, onDelete, onInvoice, onDetail, isKeluar
           )}
         </td>
       )}
-      <td className="px-4 py-3 text-sm text-muted-foreground">
+      <td className="px-4 py-2 text-sm text-muted-foreground">
         {t.type === "keluar" && t.pembeli && <div className="font-medium text-foreground">{t.pembeli}</div>}
         {t.type === "masuk" && t.asalBarang && <div>{t.asalBarang}</div>}
         {!t.pembeli && !t.asalBarang && <span>—</span>}
       </td>
-      {isKeluar && <td className="px-4 py-3 tabular-nums">1</td>}
-      <td className="px-4 py-3 tabular-nums">{formatGr(t.gramasi)}</td>
-      <td className="px-4 py-3 tabular-nums font-medium">{formatIDR(t.harga)}</td>
-      <td className="px-4 py-3 text-right">
+      {isKeluar && <td className="px-4 py-2 tabular-nums">1</td>}
+      <td className="px-4 py-2 tabular-nums">{formatGr(t.gramasi)}</td>
+      <td className="px-4 py-2 tabular-nums font-medium">{formatIDR(t.harga)}</td>
+      <td className="px-4 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
           {t.type === "keluar" && (
             <Button variant="ghost" size="icon" title="Detail" onClick={() => onDetail(t)}>
@@ -201,7 +201,7 @@ function PageControls({
   }
 
   return (
-    <div className="flex items-center justify-center gap-1 px-4 py-3 border-t border-border">
+    <div className="flex items-center justify-center gap-1 px-4 py-2 border-t border-border">
       <Button
         variant="ghost"
         size="icon"
@@ -291,6 +291,12 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
   if (filterDateTo)   filtered = filtered.filter((t) => t.date.slice(0,10) <= filterDateTo);
   // Filter tabs internal
   if (cat !== "all") filtered = filtered.filter((t) => t.category === cat);
+  // Urut berdasarkan waktu dicatat (createdAt) terbaru dulu, fallback ke date
+  filtered = [...filtered].sort((a, b) => {
+    const ca = a.createdAt ?? a.date;
+    const cb = b.createdAt ?? b.date;
+    return new Date(cb).getTime() - new Date(ca).getTime();
+  });
 
   const rows = useMemo(() => {
     const grouped = groupTransactions(filtered);
@@ -319,7 +325,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
   return (
     <>
       <div className="rounded-xl border border-border bg-card shadow-soft">
-        <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 border-b border-border">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-border">
           {/* Row 1: judul */}
           <h3 className="font-semibold tracking-tight">{title}</h3>
 
@@ -360,7 +366,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
         </div>
 
         {/* Mobile card list */}
-        <div className="sm:hidden p-3 space-y-3">
+        <div className="sm:hidden p-3 space-y-2">
           {loading && <div className="text-center py-12 text-muted-foreground">Memuat...</div>}
           {!loading && list.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">Belum ada transaksi.</div>
@@ -368,7 +374,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
           {list.map((row) => {
             if (row.kind === "batch") {
               return (
-                <div key={row.batchId} className="rounded-xl border border-primary/30 bg-card p-4 space-y-3 shadow-card">
+                <div key={row.batchId} className="rounded-xl border border-primary/30 bg-card p-3 space-y-2 shadow-card">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div>
@@ -405,7 +411,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             }
             const t = row.tx;
             return (
-              <div key={t.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-card">
+              <div key={t.id} className="rounded-xl border border-border bg-card p-3 space-y-2 shadow-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div>
@@ -448,15 +454,15 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
           <table className="w-full text-sm min-w-[760px]">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr className="text-left">
-                <th className="px-6 py-3 font-medium">Tanggal</th>
-                {filterType !== "keluar" && <th className="px-4 py-3 font-medium">Tipe</th>}
-                <th className="px-4 py-3 font-medium">Kategori</th>
-                {filterType !== "keluar" && <th className="px-4 py-3 font-medium">Detail</th>}
-                <th className="px-4 py-3 font-medium">{filterType === "keluar" ? "Pembeli" : "Pembeli / Asal"}</th>
-                {filterType === "keluar" && <th className="px-4 py-3 font-medium">QTY</th>}
-                <th className="px-4 py-3 font-medium">Gramasi</th>
-                <th className="px-4 py-3 font-medium">Harga</th>
-                <th className="px-4 py-3" />
+                <th className="px-6 py-2 font-medium">Tanggal</th>
+                {filterType !== "keluar" && <th className="px-4 py-2 font-medium">Tipe</th>}
+                <th className="px-4 py-2 font-medium">Kategori</th>
+                {filterType !== "keluar" && <th className="px-4 py-2 font-medium">Detail</th>}
+                <th className="px-4 py-2 font-medium">{filterType === "keluar" ? "Pembeli" : "Pembeli / Asal"}</th>
+                {filterType === "keluar" && <th className="px-4 py-2 font-medium">QTY</th>}
+                <th className="px-4 py-2 font-medium">Gramasi</th>
+                <th className="px-4 py-2 font-medium">Harga</th>
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -478,7 +484,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
 
         {/* Pagination */}
         {rows.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-6 py-3 border-t border-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-6 py-2 border-t border-border">
             <p className="text-xs text-muted-foreground order-2 sm:order-1">
               Menampilkan {start}–{end} dari {rows.length} entri
             </p>
