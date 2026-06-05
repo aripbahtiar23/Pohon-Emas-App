@@ -462,7 +462,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             <tbody>
               {list.length === 0 && (
                 <tr>
-                  <td colSpan={filterType === "keluar" ? 8 : 9} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={filterType === "keluar" ? 7 : 8} className="text-center py-12 text-muted-foreground">
                     Belum ada transaksi.
                   </td>
                 </tr>
