@@ -10,11 +10,11 @@ Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar 
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| Dashboard | Stat cards + HPP, filter Kategori/Tahun/Bulan, Keuntungan, Total Modal, Total Aset, Pergerakan Harga. Tooltip di setiap card. |
-| Barang Masuk | Form pembelian LM & perhiasan. No Seri wajib & unik per stok aktif. Filter tanggal di riwayat. |
-| Barang Keluar | Form penjualan multi-item, cari stok dengan search, Biaya Jual opsional, Ringkasan Penjualan lengkap, filter tanggal |
-| Riwayat | Search pembeli/asal, tabs filter, filter tanggal, generate invoice |
-| Invoice | PDF landscape A4, brand custom, share WhatsApp |
+| Dashboard | Compact stat cards, urutan: Total Aset → Keuntungan → Modal → Stok. Filter Kategori/Tahun/Bulan. Tooltip Popover tap-friendly. |
+| Barang Masuk | Form LM (Ganti Stok / Tambah Stok) & perhiasan. No Seri wajib & unik. Filter tanggal di riwayat. |
+| Barang Keluar | Multi-item, Biaya Jual opsional, Ringkasan Penjualan dengan keuntungan per transaksi. |
+| Riwayat | Sort by waktu input (terbaru atas). Eye icon detail masuk/keluar, batch detail + invoice. |
+| Invoice | PDF landscape A4, Biaya Lain auto-fill, footnote *, brand custom, share WhatsApp. |
 | Generator Story | Pricelist PNG 1080×1920px, auto-fill harga dari logammulia.com |
 | Harga Emas Hari Ini | Tabel harga & pergerakan naik/turun dari logammulia.com |
 | Auth | Login/daftar/profil via Clerk |
@@ -100,20 +100,30 @@ npm run dev
 
 | Metric | Formula |
 |--------|---------|
-| Keuntungan | Total Penjualan − HPP |
-| HPP (Harga Pokok Penjualan) | Harga beli barang terjual (berdasarkan No Seri) + biaya jual per transaksi |
+| Keuntungan Ganti Emas | Σ harga jual Ganti Stok − Σ harga beli Ganti Stok |
+| Keuntungan HPP | Total Penjualan − HPP |
+| HPP (Harga Pokok Penjualan) | Σ harga beli semua terjual + Σ biaya jual keluar |
+| Total Penjualan | Σ harga jual keluar + Σ biaya jual (total dari customer) |
 | Total Modal | Semua masuk termasuk stok belum terjual |
-| Total Penjualan | Σ harga jual per item keluar (tidak termasuk biaya jual) |
-| Total Stok | Kumulatif masuk − keluar s/d akhir periode + filter kategori (tidak bisa minus) |
+| Total Stok | Kumulatif masuk − keluar s/d akhir periode (tidak bisa minus) |
 | Total Aset | Stok tersedia × harga per gramasi dari logammulia.com |
 
+### Jenis Pencatatan Barang Masuk LM
+
+| Jenis | Keterangan | Dampak Dashboard |
+|-------|-----------|-----------------|
+| **Ganti Stok** | Beli setelah jual, gramasi sama | Masuk Keuntungan Ganti Emas |
+| **Tambah Stok** | Beli untuk menambah stok | Masuk HPP |
+
 ### Biaya Jual
-Disimpan di kolom `notes` dengan format `biaya_jual:50000|ket:keterangan`. HPP dashboard mem-parse nilai ini dari setiap transaksi keluar.
+Disimpan di `notes` per transaksi keluar: `biaya_jual:50000|ket:keterangan`. Hanya item pertama batch yang menyimpan biaya (tidak double-count). HPP mem-parse nilai ini otomatis.
 
 ### No Seri (Logam Mulia)
-- Wajib diisi saat mencatat barang masuk LM
-- Unik per user — tidak boleh ada dua stok aktif dengan SN sama
-- Re-buy dengan SN sama diizinkan jika barang sebelumnya sudah terjual
+- Wajib diisi, unik per stok aktif
+- Re-buy SN sama diizinkan jika barang sebelumnya sudah terjual
+
+### Urutan Riwayat
+Transaksi diurutkan berdasarkan `created_at` (waktu input) — transaksi terbaru muncul di atas.
 
 ---
 
@@ -121,7 +131,7 @@ Disimpan di kolom `notes` dengan format `biaya_jual:50000|ket:keterangan`. HPP d
 
 Scraper mengambil harga dari [logammulia.com](https://www.logammulia.com/id/harga-emas-hari-ini).
 
-> **Catatan:** logammulia.com memblokir datacenter IP. Jalankan dari komputer lokal.
+> **Catatan:** logammulia.com kadang memblokir automated requests. Scraper menggunakan browser-like headers untuk bypass. Jalankan dari komputer lokal.
 
 ### Setup `.env.scraper` dan `.env.scraper.dev` (tidak di-commit)
 
