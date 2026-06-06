@@ -116,8 +116,35 @@ function HargaEmas() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6 items-start">
 
-        {/* Tabel harga dari Supabase */}
-        <Card className="p-5 sm:p-7 shadow-card border-border/60 bg-card/80">
+        {/* Pergerakan harga harian — mobile: atas tabel, lg: kolom kanan baris 1 */}
+        <Card className="p-5 shadow-card border-border/60 bg-card/80 order-first lg:order-none lg:col-start-2 lg:row-start-1">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Pergerakan Harga Hari Ini</p>
+          {(() => {
+            const hariIni = supabaseData?.rows.find((r) => r.berat_gram === 1)?.harga_dasar;
+            const kemarin = hargaKemarin["1 gr"];
+            if (!hariIni) return <p className="text-sm text-muted-foreground">{loading ? "Memuat..." : "Data belum tersedia."}</p>;
+            if (!kemarin) return (
+              <p className="text-sm text-muted-foreground">Data perbandingan belum tersedia. Akan muncul setelah jam 10:00 WIB hari berikutnya.</p>
+            );
+            const diff = hariIni - kemarin;
+            const pct  = (diff / kemarin) * 100;
+            if (diff === 0) return (
+              <p className="text-sm text-muted-foreground">Belum ada pergerakan harga hari ini.</p>
+            );
+            return (
+              <div className={`flex items-center gap-3 text-2xl font-bold ${diff > 0 ? "text-success" : "text-destructive"}`}>
+                {diff > 0 ? <TrendingUp className="size-7" /> : <TrendingDown className="size-7" />}
+                <div>
+                  <div>{diff > 0 ? "Naik" : "Turun"} {formatIDR(Math.abs(diff))}</div>
+                  <div className="text-sm font-normal text-muted-foreground mt-0.5">{Math.abs(pct).toFixed(2)}% dibandingkan kemarin</div>
+                </div>
+              </div>
+            );
+          })()}
+        </Card>
+
+        {/* Tabel harga dari Supabase — mobile: tengah, lg: kolom kiri spans 2 baris */}
+        <Card className="p-5 sm:p-7 shadow-card border-border/60 bg-card/80 lg:col-start-1 lg:row-start-1 lg:row-span-2">
           <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="font-serif text-2xl font-semibold">Daftar Harga</h2>
@@ -133,7 +160,7 @@ function HargaEmas() {
           </div>
 
           {/* Header */}
-          <div className="grid grid-cols-[90px_1fr_1fr] gap-3 pb-2 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <div className="grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 pb-2 border-b border-border text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             <span>Gramasi</span>
             <span>Harga Dasar</span>
             <span>+ Pajak PPh</span>
@@ -158,7 +185,7 @@ function HargaEmas() {
             <div className="space-y-1">
               {supabaseData.rows.map((row) => (
                 <div key={row.berat}
-                  className={`grid grid-cols-[90px_1fr_1fr] gap-3 py-2 border-b border-border/50 text-sm ${row.berat_gram === 1 ? "bg-primary/5 rounded -mx-1 px-1 font-medium" : ""}`}>
+                  className={`grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 py-2 border-b border-border/50 text-[10px] sm:text-sm ${row.berat_gram === 1 ? "bg-primary/5 rounded -mx-1 px-1 font-medium" : ""}`}>
                   <span className={row.berat_gram === 1 ? "font-semibold" : ""}>{row.berat}</span>
                   <span className="tabular-nums">{formatIDR(row.harga_dasar)}</span>
                   <span className="tabular-nums text-muted-foreground">{formatIDR(row.harga_pajak)}</span>
@@ -168,56 +195,21 @@ function HargaEmas() {
           )}
         </Card>
 
-        {/* Sidebar ringkasan */}
-        <div className="space-y-4">
-          {/* Pergerakan harga harian */}
-          <Card className="p-5 shadow-card border-border/60 bg-card/80">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Pergerakan Harga Hari Ini</p>
-            {(() => {
-              const hariIni = supabaseData?.rows.find((r) => r.berat_gram === 1)?.harga_dasar;
-              const kemarin = hargaKemarin["1 gr"];
-              if (!hariIni) return <p className="text-sm text-muted-foreground">{loading ? "Memuat..." : "Data belum tersedia."}</p>;
-              if (!kemarin) return (
-                <p className="text-sm text-muted-foreground">Data perbandingan belum tersedia. Akan muncul setelah jam 10:00 WIB hari berikutnya.</p>
-              );
-
-              const diff = hariIni - kemarin;
-              const pct  = (diff / kemarin) * 100;
-
-              // Tidak ada pergerakan
-              if (diff === 0) return (
-                <p className="text-sm text-muted-foreground">Belum ada pergerakan harga hari ini.</p>
-              );
-
-              return (
-                <div className={`flex items-center gap-3 text-2xl font-bold ${diff > 0 ? "text-success" : "text-destructive"}`}>
-                  {diff > 0 ? <TrendingUp className="size-7" /> : <TrendingDown className="size-7" />}
-                  <div>
-                    <div>{diff > 0 ? "Naik" : "Turun"} {formatIDR(Math.abs(diff))}</div>
-                    <div className="text-sm font-normal text-muted-foreground mt-0.5">{Math.abs(pct).toFixed(2)}% dibandingkan kemarin</div>
-                  </div>
-                </div>
-              );
-            })()}
-          </Card>
-
-
-          {/* Info update */}
-          <Card className="p-5 shadow-card border-border/60 bg-muted/30">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Info</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              🕙 Harga emas diperbarui otomatis setiap hari pukul <span className="font-medium text-foreground">10:00 WIB</span>.
-            </p>
-            <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-              📋 Selalu cek harga terkini di{" "}
-              <a href="https://www.logammulia.com/id/harga-emas-hari-ini" target="_blank" rel="noopener noreferrer"
-                className="text-primary underline decoration-dotted hover:decoration-solid">
-                logammulia.com
-              </a>{" "}
-              untuk memastikan akurasi data.
-            </p>
-          </Card>
-        </div>
+        {/* Info update — mobile: bawah tabel, lg: kolom kanan baris 2 */}
+        <Card className="p-5 shadow-card border-border/60 bg-muted/30 lg:col-start-2 lg:row-start-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Info</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            🕙 Harga emas diperbarui otomatis setiap hari pukul <span className="font-medium text-foreground">10:00 WIB</span>.
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+            📋 Selalu cek harga terkini di{" "}
+            <a href="https://www.logammulia.com/id/harga-emas-hari-ini" target="_blank" rel="noopener noreferrer"
+              className="text-primary underline decoration-dotted hover:decoration-solid">
+              logammulia.com
+            </a>{" "}
+            untuk memastikan akurasi data.
+          </p>
+        </Card>
       </div>
     </AppShell>
   );
