@@ -160,7 +160,7 @@ function HargaEmas() {
           </div>
 
           {/* Header */}
-          <div className="grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 pb-2 border-b border-border text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <div className="grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 pb-2 border-b border-border text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             <span>Gramasi</span>
             <span>Harga Dasar</span>
             <span>+ Pajak PPh</span>
@@ -185,7 +185,7 @@ function HargaEmas() {
             <div className="space-y-1">
               {supabaseData.rows.map((row) => (
                 <div key={row.berat}
-                  className={`grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 py-2 border-b border-border/50 text-[10px] sm:text-sm ${row.berat_gram === 1 ? "bg-primary/5 rounded -mx-1 px-1 font-medium" : ""}`}>
+                  className={`grid grid-cols-[68px_1fr_1fr] sm:grid-cols-[90px_1fr_1fr] gap-2 sm:gap-3 py-2 border-b border-border/50 text-[11px] sm:text-sm ${row.berat_gram === 1 ? "bg-primary/5 rounded -mx-1 px-1 font-medium" : ""}`}>
                   <span className={row.berat_gram === 1 ? "font-semibold" : ""}>{row.berat}</span>
                   <span className="tabular-nums">{formatIDR(row.harga_dasar)}</span>
                   <span className="tabular-nums text-muted-foreground">{formatIDR(row.harga_pajak)}</span>
