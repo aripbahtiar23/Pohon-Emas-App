@@ -39,18 +39,26 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
   const { userId } = useAuth();
   const [fields, setFields] = useState<Record<string, string>>({});
   const [entryType, setEntryType] = useState<"beli" | "stok_awal">("beli");
+  const [opsItems, setOpsItems] = useState<{ id: string; amount: string; label: string }[]>([
+    { id: crypto.randomUUID(), amount: "", label: "" },
+  ]);
 
   useEffect(() => {
     if (!tx) return;
     if (tx.type === "keluar") {
-      const biayaVal = parseInt(tx.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
-      const ketVal = tx.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
+      const ongkirVal = parseInt(tx.notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
+      const parsedOps = tx.notes ? [...tx.notes.matchAll(/ops:(\d+):([^|]*)/g)].map((m) => ({ id: crypto.randomUUID(), amount: formatRupiah(m[1]), label: m[2] })) : [];
+      if (parsedOps.length === 0) {
+        const legacy = parseInt(tx.notes?.match(/biaya_ops:(\d+)/)?.[1] ?? tx.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+        if (legacy > 0) parsedOps.push({ id: crypto.randomUUID(), amount: formatRupiah(String(legacy)), label: "" });
+      }
+      if (parsedOps.length < 1) parsedOps.push({ id: crypto.randomUUID(), amount: "", label: "" });
+      setOpsItems(parsedOps);
       setFields({
         harga: formatRupiah(String(tx.harga)),
         pembeli: tx.pembeli ?? "",
         tanggal: toDateInput(tx.date),
-        biayaJual: biayaVal > 0 ? formatRupiah(String(biayaVal)) : "",
-        keteranganBiaya: ketVal,
+        ongkir: ongkirVal > 0 ? formatRupiah(String(ongkirVal)) : "",
       });
     } else if (tx.category === "logam_mulia") {
       setEntryType(tx.notes?.includes("entry_type:stok_awal") ? "stok_awal" : "beli");
@@ -88,11 +96,10 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
     const date = new Date(fields.tanggal + "T00:00:00").toISOString();
     try {
       if (tx.type === "keluar") {
-        const biayaNum = parseRupiah(fields.biayaJual) || 0;
-        const ket = fields.keteranganBiaya?.trim() ?? "";
+        const ongkirNum = parseRupiah(fields.ongkir) || 0;
         const parts: string[] = [];
-        if (biayaNum > 0) parts.push(`biaya_jual:${biayaNum}`);
-        if (ket) parts.push(`ket:${ket}`);
+        if (ongkirNum > 0) parts.push(`ongkir:${ongkirNum}`);
+        opsItems.forEach((op) => { const a = parseRupiah(op.amount) || 0; if (a > 0) parts.push(`ops:${a}:${op.label.trim()}`); });
         await patchTx(tx.id, {
           harga, pembeli: fields.pembeli.trim() || undefined, date,
           notes: parts.length ? parts.join("|") : "",
@@ -305,25 +312,43 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
               <Label>Tanggal <span className="text-destructive">*</span></Label>
               <DatePicker value={fields.tanggal} onChange={(v) => set("tanggal", v)} />
             </div>
-          </div>
 
-          {tx.type === "keluar" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {tx.type === "keluar" && (
               <div className="space-y-2">
-                <Label>Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+                <Label>Ongkir <span className="text-muted-foreground font-normal">(opsional)</span></Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
                   <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
-                    value={fields.biayaJual ?? ""}
-                    onChange={(e) => set("biayaJual", formatRupiah(e.target.value))} />
+                    value={fields.ongkir ?? ""}
+                    onChange={(e) => set("ongkir", formatRupiah(e.target.value))} />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Keterangan Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
-                <Input value={fields.keteranganBiaya ?? ""}
-                  onChange={(e) => set("keteranganBiaya", e.target.value)}
-                  placeholder="mis. ongkos kirim, komisi, dll" />
+            )}
+          </div>
+
+          {tx.type === "keluar" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Biaya Operasional <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+                <button type="button" onClick={() => setOpsItems((p) => [...p, { id: crypto.randomUUID(), amount: "", label: "" }])}
+                  className="text-xs text-primary hover:underline">+ Tambah</button>
               </div>
+              {opsItems.map((op) => (
+                <div key={op.id} className="flex gap-2 items-center">
+                  <div className="relative w-36 shrink-0">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
+                    <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
+                      value={op.amount}
+                      onChange={(e) => setOpsItems((p) => p.map((i) => i.id === op.id ? { ...i, amount: formatRupiah(e.target.value) } : i))} />
+                  </div>
+                  <Input placeholder="Keterangan"
+                    className="flex-1"
+                    value={op.label}
+                    onChange={(e) => setOpsItems((p) => p.map((i) => i.id === op.id ? { ...i, label: e.target.value } : i))} />
+                  <button type="button" onClick={() => setOpsItems((p) => p.filter((i) => i.id !== op.id))}
+                    className="text-destructive hover:opacity-80 shrink-0 text-xs">Hapus</button>
+                </div>
+              ))}
             </div>
           )}
 

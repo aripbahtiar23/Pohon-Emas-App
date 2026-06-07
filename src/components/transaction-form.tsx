@@ -29,6 +29,13 @@ import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
 
+function moneySize(n: number) {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return "text-xs";
+  if (abs >= 100_000_000) return "text-sm";
+  return "text-base";
+}
+
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 interface Props {
@@ -347,8 +354,10 @@ function SaleForm() {
   const [items, setItems] = useState<SaleItem[]>([emptyRow()]);
   const [pembeli, setPembeli] = useState("");
   const [tanggal, setTanggal] = useState(todayStr());
-  const [biayaJual, setBiayaJual] = useState("");
-  const [keteranganBiaya, setKeteranganBiaya] = useState("");
+  const [ongkir, setOngkir] = useState("");
+  const [opsItems, setOpsItems] = useState<{ id: string; amount: string; label: string }[]>([
+    { id: crypto.randomUUID(), amount: "", label: "" },
+  ]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -377,11 +386,13 @@ function SaleForm() {
   const totalGramasi = resolvedItems.reduce((sum, { stock: s }) => sum + (s?.gramasi ?? 0), 0);
   const totalNilai = resolvedItems.reduce((sum, { item }) => sum + (parseRupiah(item.harga) || 0), 0);
   const validCount = resolvedItems.filter(({ item, stock: s }) => s && parseRupiah(item.harga) > 0).length;
-  const biayaJualNum = parseRupiah(biayaJual) || 0;
-  const totalHargaJual = totalNilai + biayaJualNum;
+  const ongkirNum = parseRupiah(ongkir) || 0;
+  const totalOpsNum = opsItems.reduce((s, i) => s + (parseRupiah(i.amount) || 0), 0);
+  const totalBiaya = ongkirNum + totalOpsNum;
+  const totalHargaJual = totalNilai + ongkirNum;
   const totalHPP = resolvedItems.reduce((sum, { item, stock: s }) =>
     sum + (s && parseRupiah(item.harga) > 0 ? s.harga : 0), 0);
-  const keuntunganTx = totalHargaJual - totalHPP;
+  const keuntunganTx = totalNilai - totalHPP - totalOpsNum;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,15 +422,16 @@ function SaleForm() {
           // biaya jual hanya disimpan di item pertama (per transaksi, bukan per barang)
           notes: idx === 0 ? (() => {
             const parts: string[] = [];
-            if (biayaJualNum > 0) parts.push(`biaya_jual:${biayaJualNum}`);
-            if (keteranganBiaya.trim()) parts.push(`ket:${keteranganBiaya.trim()}`);
+            if (ongkirNum > 0) parts.push(`ongkir:${ongkirNum}`);
+            opsItems.forEach((op) => { const a = parseRupiah(op.amount) || 0; if (a > 0) parts.push(`ops:${a}:${op.label.trim()}`); });
             return parts.length ? parts.join("|") : undefined;
           })() : undefined,
         })
       ));
       toast.success(`${resolvedItems.length} barang berhasil dicatat`);
       setItems([emptyRow()]); setPembeli(""); setTanggal(todayStr());
-      setBiayaJual(""); setKeteranganBiaya("");
+      setOngkir("");
+      setOpsItems([{ id: crypto.randomUUID(), amount: "", label: "" }]);
     } catch {
       toast.error("Gagal menyimpan. Coba lagi.");
     } finally {
@@ -508,20 +520,39 @@ function SaleForm() {
         </div>
       </div>
 
-      {/* Biaya jual */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {/* Ongkir & Biaya Operasional */}
+      <div className="space-y-3">
         <div className="space-y-2">
-          <Label>Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+          <Label>Ongkir <span className="text-muted-foreground font-normal">(opsional)</span></Label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
             <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
-              value={biayaJual}
-              onChange={(e) => setBiayaJual(formatRupiah(e.target.value))} />
+              value={ongkir} onChange={(e) => setOngkir(formatRupiah(e.target.value))} />
           </div>
         </div>
+
+        {/* Biaya Operasional dynamic */}
         <div className="space-y-2">
-          <Label>Keterangan Biaya Jual <span className="text-muted-foreground font-normal">(opsional)</span></Label>
-          <Input value={keteranganBiaya} onChange={(e) => setKeteranganBiaya(e.target.value)} placeholder="mis. ongkos kirim, komisi, dll" />
+          <div className="flex items-center justify-between">
+            <Label>Biaya Operasional <span className="text-muted-foreground font-normal">(opsional)</span></Label>
+            <button type="button" onClick={() => setOpsItems((p) => [...p, { id: crypto.randomUUID(), amount: "", label: "" }])}
+              className="text-xs text-primary hover:underline">+ Tambah</button>
+          </div>
+          {opsItems.map((op) => (
+            <div key={op.id} className="flex gap-2 items-center">
+              <div className="relative w-40 shrink-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">Rp</span>
+                <Input type="text" inputMode="numeric" placeholder="0" className="pl-9"
+                  value={op.amount}
+                  onChange={(e) => setOpsItems((p) => p.map((i) => i.id === op.id ? { ...i, amount: formatRupiah(e.target.value) } : i))} />
+              </div>
+              <Input placeholder="Keterangan (mis. komisi, packaging)" className="flex-1"
+                value={op.label}
+                onChange={(e) => setOpsItems((p) => p.map((i) => i.id === op.id ? { ...i, label: e.target.value } : i))} />
+              <button type="button" onClick={() => setOpsItems((p) => p.filter((i) => i.id !== op.id))}
+                className="text-destructive hover:opacity-80 shrink-0 text-xs">Hapus</button>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -538,19 +569,25 @@ function SaleForm() {
               <p className="text-xs text-muted-foreground sm:mb-1">Total Gramasi</p>
               <p className="text-xl font-semibold">{formatGr(totalGramasi)}</p>
             </div>
-            {biayaJualNum > 0 && (
+            {totalOpsNum > 0 && (
               <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
-                <p className="text-xs text-muted-foreground sm:mb-1">Biaya Jual</p>
-                <p className={`font-semibold ${formatIDR(biayaJualNum).length > 17 ? "text-sm" : formatIDR(biayaJualNum).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(biayaJualNum)}</p>
+                <p className="text-xs text-muted-foreground sm:mb-1 shrink-0">Biaya Ops</p>
+                <p className={`font-semibold break-all leading-tight text-right sm:text-center ${moneySize(totalOpsNum)}`}>{formatIDR(totalOpsNum)}</p>
+              </div>
+            )}
+            {ongkirNum > 0 && (
+              <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
+                <p className="text-xs text-muted-foreground sm:mb-1 shrink-0">Ongkir</p>
+                <p className={`font-semibold break-all leading-tight text-right sm:text-center ${moneySize(ongkirNum)}`}>{formatIDR(ongkirNum)}</p>
               </div>
             )}
             <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
-              <p className="text-xs text-muted-foreground sm:mb-1">Total Harga Jual</p>
-              <p className={`font-semibold text-primary ${formatIDR(totalHargaJual).length > 17 ? "text-sm" : formatIDR(totalHargaJual).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(totalHargaJual)}</p>
+              <p className="text-xs text-muted-foreground sm:mb-1 shrink-0">Total Harga Jual</p>
+              <p className={`font-semibold text-primary break-all leading-tight text-right sm:text-center ${moneySize(totalHargaJual)}`}>{formatIDR(totalHargaJual)}</p>
             </div>
             <div className="flex sm:flex-col items-center justify-between sm:justify-center sm:flex-1 py-1 sm:py-0 border-t sm:border-t-0 sm:border-l border-border">
-              <p className="text-xs text-muted-foreground sm:mb-1">Keuntungan</p>
-              <p className={`font-semibold ${keuntunganTx >= 0 ? "text-success" : "text-destructive"} ${formatIDR(keuntunganTx).length > 17 ? "text-sm" : formatIDR(keuntunganTx).length > 13 ? "text-base" : "text-lg"}`}>{formatIDR(keuntunganTx)}</p>
+              <p className="text-xs text-muted-foreground sm:mb-1 shrink-0">Keuntungan</p>
+              <p className={`font-semibold break-all leading-tight text-right sm:text-center ${keuntunganTx >= 0 ? "text-success" : "text-destructive"} ${moneySize(keuntunganTx)}`}>{formatIDR(keuntunganTx)}</p>
             </div>
           </div>
         </div>

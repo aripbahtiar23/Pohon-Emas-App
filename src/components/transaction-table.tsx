@@ -263,13 +263,25 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
   const filterDateFrom = extDateFrom ?? (showDateFilter ? intDateFrom : undefined);
   const filterDateTo   = extDateTo   ?? (showDateFilter ? intDateTo   : undefined);
 
-  const parseBiaya = (notes?: string) => parseInt(notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+  const parseOpsItems = (notes?: string): { amount: number; label: string }[] => {
+    if (!notes) return [];
+    const items: { amount: number; label: string }[] = [];
+    for (const m of notes.matchAll(/ops:(\d+):([^|]*)/g)) items.push({ amount: parseInt(m[1]), label: m[2] });
+    if (items.length === 0) {
+      const m = notes.match(/biaya_ops:(\d+)/) ?? notes.match(/biaya_jual:(\d+)/);
+      if (m) items.push({ amount: parseInt(m[1]), label: "" });
+    }
+    return items;
+  };
+  const parseBiayaOps = (notes?: string) => parseOpsItems(notes).reduce((s, i) => s + i.amount, 0);
+  const parseOngkir = (notes?: string) => parseInt(notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
+  const parseBiaya = (notes?: string) => parseBiayaOps(notes) + parseOngkir(notes);
 
   const openInvoiceSingle = (t: Transaction) => setInvoiceData({
     transactionIds: [t.id],
     date: t.date,
     pembeli: t.pembeli,
-    biayaLain: parseBiaya(t.notes),
+    biayaLain: parseOngkir(t.notes),
     items: [{ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga }],
   });
 
@@ -279,7 +291,7 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
       transactionIds: row.txs.map((t) => t.id),
       date: row.date,
       pembeli: row.pembeli,
-      biayaLain: parseBiaya(firstWithNotes?.notes),
+      biayaLain: parseOngkir(firstWithNotes?.notes),
       items: row.txs.map((t) => ({ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga })),
     });
   };
@@ -595,9 +607,11 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             const t = detailTarget;
             const isMasuk = t.type === "masuk";
             const masukSrc = !isMasuk && t.sourceId ? all.find(m => m.id === t.sourceId) : null;
-            const biayaJual = parseInt(t.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+            const opsItemsList = parseOpsItems(t.notes);
+            const ongkirItem = parseOngkir(t.notes);
+            const totalOpsItem = parseBiayaOps(t.notes);
             const keterangan = t.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
-            const keuntunganItem = isMasuk ? null : t.harga - (masukSrc?.harga ?? 0) - biayaJual;
+            const keuntunganItem = isMasuk ? null : t.harga - (masukSrc?.harga ?? 0) - totalOpsItem;
 
             const Row = ({ label, value, mono }: { label: string; value: string; mono?: boolean }) => (
               <div className="flex items-center justify-between py-2 border-b border-border">
@@ -628,7 +642,10 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
                 {isMasuk && t.asalBarang && <Row label="Asal Barang" value={t.asalBarang} />}
                 {!isMasuk && masukSrc && <Row label="Harga Beli Asal" value={formatIDR(masukSrc.harga)} />}
                 {!isMasuk && <Row label="Harga Jual" value={formatIDR(t.harga)} />}
-                {!isMasuk && biayaJual > 0 && <Row label="Biaya Jual" value={formatIDR(biayaJual)} />}
+                {!isMasuk && <Row label="Ongkos Kirim" value={ongkirItem > 0 ? formatIDR(ongkirItem) : "—"} />}
+                {!isMasuk && opsItemsList.map((op, i) => (
+                  <Row key={i} label={op.label ? `Biaya Ops — ${op.label}` : "Biaya Operasional"} value={formatIDR(op.amount)} />
+                ))}
                 {!isMasuk && keterangan && <Row label="Keterangan" value={keterangan} />}
                 {!isMasuk && keuntunganItem !== null && (
                   <div className="flex items-center justify-between py-2 border-b border-border">
@@ -660,11 +677,14 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             const row = batchDetailTarget;
             const masukMap = new Map(all.filter(t => t.type === "masuk").map(t => [t.id, t]));
             const firstWithNotes = row.txs.find(t => t.notes);
-            const biayaTrx = parseInt(firstWithNotes?.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+            const opsItemsTrx = parseOpsItems(firstWithNotes?.notes);
+            const biayaOpsTrx = parseBiayaOps(firstWithNotes?.notes);
+            const ongkirTrx = parseOngkir(firstWithNotes?.notes);
+            const biayaTrx = biayaOpsTrx + ongkirTrx;
             const ketTrx = firstWithNotes?.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
             const totalHargaBeli = row.txs.reduce((sum, t) => sum + (t.sourceId ? (masukMap.get(t.sourceId)?.harga ?? 0) : 0), 0);
-            const totalHargaJual = row.totalHarga + biayaTrx;
-            const keuntunganBersih = row.totalHarga - totalHargaBeli;
+            const totalHargaJual = row.totalHarga + ongkirTrx;
+            const keuntunganBersih = row.totalHarga - totalHargaBeli - biayaOpsTrx;
             return (
               <>
                 <div className="overflow-y-auto flex-1 pr-1">
@@ -679,12 +699,18 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
                         <span className="text-sm font-medium">{row.pembeli}</span>
                       </div>
                     )}
-                    {biayaTrx > 0 && (
+                    {ongkirTrx > 0 && (
                       <div className="flex items-center justify-between py-2 border-b border-border">
-                        <span className="text-sm text-muted-foreground">Biaya Jual</span>
-                        <span className="text-sm font-medium">{formatIDR(biayaTrx)}</span>
+                        <span className="text-sm text-muted-foreground">Ongkir</span>
+                        <span className="text-sm font-medium">{formatIDR(ongkirTrx)}</span>
                       </div>
                     )}
+                    {opsItemsTrx.map((op, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-border">
+                        <span className="text-sm text-muted-foreground">{op.label ? `Biaya Ops — ${op.label}` : "Biaya Operasional"}</span>
+                        <span className="text-sm font-medium">{formatIDR(op.amount)}</span>
+                      </div>
+                    ))}
                     {ketTrx && (
                       <div className="flex items-center justify-between py-2 border-b border-border">
                         <span className="text-sm text-muted-foreground">Keterangan</span>

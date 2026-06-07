@@ -252,18 +252,13 @@ function InvoiceCanvas({ invoiceNumber, date, issuedDate, pembeli, customerAddre
               <div style={{ fontSize: f(11), color: MUTED, marginTop: 2 }}>{bank.bankName || "—"}</div>
               <div style={{ fontSize: f(11), color: MUTED }}>a.n. {bank.accountHolder || "—"}</div>
             </div>
-            {biayaLain > 0 && (
-              <div style={{ fontSize: f(9), color: MUTED, lineHeight: 1.5, maxWidth: 260 }}>
-                * Biaya tambahan yang dikenakan saat transaksi (ongkos kirim, biaya jasa, dll)
-              </div>
-            )}
           </div>
 
           {/* Summary + Thank you */}
           <div style={{ minWidth: 230 }}>
             {[
               { label: "Subtotal",       value: subtotal },
-              ...(biayaLain > 0 ? [{ label: "Biaya Lain *", value: biayaLain }] : []),
+              ...(biayaLain > 0 ? [{ label: "Ongkos Kirim", value: biayaLain }] : []),
               { label: "Down Payment",   value: downPayment },
               { label: "Repayment",      value: repayment },
             ].map(({ label, value }) => (
@@ -527,7 +522,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
                 </div>
                 <div className="rounded border border-border bg-muted/40 p-2 text-xs space-y-1">
                   <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatIDR(subtotal)}</span></div>
-                  {biayaNum > 0 && <div className="flex justify-between text-muted-foreground"><span>Biaya Lain</span><span>{formatIDR(biayaNum)}</span></div>}
+                  {biayaNum > 0 && <div className="flex justify-between text-muted-foreground"><span>Ongkos Kirim</span><span>{formatIDR(biayaNum)}</span></div>}
                   <div className="flex justify-between text-muted-foreground"><span>DP</span><span>-{formatIDR(dp)}</span></div>
                   <div className="flex justify-between font-semibold border-t pt-1 mt-1"><span>Total / Repayment</span><span>{formatIDR(grandTotal - dp)}</span></div>
                 </div>

@@ -118,8 +118,12 @@ function Dashboard() {
       if (t.type !== "keluar") continue;
       gramasiKeluar += t.gramasi;
       if (t.notes) {
-        const m = t.notes.match(/biaya_jual:(\d+)/);
-        if (m) { const b = parseInt(m[1]); hppTotal += b; biayaJual += b; }
+        const opsTotal = [...t.notes.matchAll(/ops:(\d+):[^|]*/g)].reduce((s, m) => s + parseInt(m[1]), 0)
+          || parseInt(t.notes.match(/biaya_ops:(\d+)/)?.[1] ?? t.notes.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+        const ongkirTotal = parseInt(t.notes.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
+        if (opsTotal > 0) hppTotal += opsTotal;
+        const b = opsTotal + ongkirTotal;
+        if (b > 0) biayaJual += b;
       }
       if (t.sourceId) {
         const masuk = masukMap.get(t.sourceId);
@@ -141,11 +145,11 @@ function Dashboard() {
     return { hpp: hppTotal, totalBeliEmasTerjual: beliEmas, jualGantiStok: jualGS, totalBiayaJualKeluar: biayaJual, countGantiKeluar: gantiKeluar, countGantiMasuk: gantiMasuk, totalGramasiTerjual: gramasiKeluar, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
   }, [tx, filteredTx]);
 
-  // Total Penjualan = harga jual items + biaya jual (total yang diterima dari customer)
-  const totalPenjualan = s.totalJual + totalBiayaJualKeluar;
+  // Total Omzet = sum harga jual produk saja, tanpa ongkir dan biaya operasional
+  const totalPenjualan = s.totalJual;
   // Keuntungan Ganti Emas = harga jual Ganti Stok - harga beli Ganti Stok
   const keuntunganBeliEmas = jualGantiStok - totalBeliEmasTerjual;
-  // Keuntungan HPP = Total Penjualan - HPP (biaya cancel out: +biaya di revenue, +biaya di HPP)
+  // Keuntungan Total Penjualan = Total Omzet - Total Modal Barang Terjual
   const keuntunganHPP = totalPenjualan - hpp;
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
@@ -304,15 +308,15 @@ function Dashboard() {
 
       {/* Row 2 — Keuntungan (accent) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-        <Stat label="Keuntungan Ganti Emas" value={formatIDR(keuntunganBeliEmas)} icon={TrendingUp}
+        <Stat label="Keuntungan Ganti Stok" value={formatIDR(keuntunganBeliEmas)} icon={TrendingUp}
           sub={`${countTotalKeluar} terjual · ${countGantiMasuk} masuk ganti stok`}
           tooltip="Keuntungan dari transaksi Ganti Stok — total penjualan dikurangi harga beli emas yang diganti dan biaya jual." />
-        <Stat label="Keuntungan HPP" value={formatIDR(keuntunganHPP)} icon={TrendingUp}
+        <Stat label="Keuntungan Total Penjualan" value={formatIDR(keuntunganHPP)} icon={TrendingUp}
           sub={`${countTotalKeluar} terjual · ${countTotalMasuk} barang masuk`}
           tooltip="Keuntungan dari transaksi Tambah Stok — total penjualan dikurangi Harga Pokok Penjualan (HPP) dan biaya jual." />
       </div>
 
-      {/* Row 3 — Total Modal + HPP + Total Penjualan */}
+      {/* Row 3 — Total Modal + HPP + Total Omzet */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
         <div className="rounded-xl border border-border bg-card p-2 md:p-3 shadow-soft flex flex-col">
           <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
@@ -325,15 +329,15 @@ function Dashboard() {
         <div className="rounded-xl border border-border bg-card p-2 md:p-3 shadow-soft flex flex-col">
           <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
             <ShoppingCart className="size-4 text-gold-deep shrink-0" />
-            <span>Harga Pokok Penjualan</span>
-            <InfoTip text="Modal barang yang sudah terjual ditambah biaya jual. Ini adalah biaya nyata untuk barang yang sudah keluar." />
+            <span>Total Modal Barang Terjual</span>
+            <InfoTip text="Total harga beli barang yang sudah terjual ditambah biaya operasional." />
           </div>
           <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(hpp).length > 18 ? "text-sm md:text-base" : formatIDR(hpp).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(hpp)}</div>
         </div>
         <div className="rounded-xl border border-border bg-card p-2 md:p-3 shadow-soft flex flex-col">
           <div className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground">
             <ArrowUpFromLine className="size-4 text-gold-deep shrink-0" />
-            <span>Total Penjualan</span>
+            <span>Total Omzet</span>
             <InfoTip text="Total uang yang masuk dari semua penjualan emas." />
           </div>
           <div className={`font-semibold tracking-tight mt-auto pt-2 tabular-nums ${formatIDR(totalPenjualan).length > 18 ? "text-sm md:text-base" : formatIDR(totalPenjualan).length > 14 ? "text-base md:text-xl" : "text-lg md:text-2xl"}`}>{formatIDR(totalPenjualan)}</div>
