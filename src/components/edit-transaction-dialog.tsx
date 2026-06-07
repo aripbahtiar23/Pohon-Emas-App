@@ -186,28 +186,18 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {tx.type === "masuk" && tx.category === "logam_mulia" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 sm:col-span-2">
-                <Label>Jenis Pencatatan <span className="text-destructive">*</span></Label>
+                <Label>Jenis Pencatatan <span className="text-muted-foreground text-xs font-normal">(pilih salah satu)</span> <span className="text-destructive">*</span></Label>
                 <div className="flex rounded-md border border-input overflow-hidden h-10">
-                  <button type="button" onClick={() => setEntryType("beli")}
-                    className={`flex-1 text-sm transition-colors ${entryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
-                    Ganti Stok
-                  </button>
                   <button type="button" onClick={() => setEntryType("stok_awal")}
-                    className={`flex-1 text-sm border-l border-input transition-colors ${entryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
+                    className={`flex-1 text-sm transition-colors ${entryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
                     Tambah Stok
+                  </button>
+                  <button type="button" onClick={() => setEntryType("beli")}
+                    className={`flex-1 text-sm border-l border-input transition-colors ${entryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
+                    Ganti Stok
                   </button>
                 </div>
                 <div className="rounded-lg border border-border/50 bg-transparent px-4 py-3 flex gap-4">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-foreground">Ganti Stok</p>
-                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
-                      <li>Emas dibeli setelah melakukan penjualan</li>
-                      <li>Gramasi sesuai dengan yang sudah dijual</li>
-                      <li>Harga beli masuk Keuntungan Ganti Emas</li>
-                      <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
-                    </ul>
-                  </div>
-                  <div className="w-px bg-border/40 shrink-0" />
                   <div className="flex-1 space-y-1">
                     <p className="text-xs font-medium text-foreground">Tambah Stok</p>
                     <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
@@ -215,6 +205,16 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
                       <li>Tidak perlu sama gramasinya dengan yang dijual</li>
                       <li>Harga beli masuk perhitungan HPP di dashboard</li>
                       <li>Mempengaruhi Keuntungan HPP di dashboard</li>
+                    </ul>
+                  </div>
+                  <div className="w-px bg-border/40 shrink-0" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-medium text-foreground">Ganti Stok</p>
+                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                      <li>Emas dibeli setelah melakukan penjualan</li>
+                      <li>Gramasi sesuai dengan yang sudah dijual</li>
+                      <li>Harga beli masuk Keuntungan Ganti Emas</li>
+                      <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
                     </ul>
                   </div>
                 </div>

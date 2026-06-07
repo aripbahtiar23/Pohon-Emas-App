@@ -40,7 +40,7 @@ const KARAT_OPTIONS = ["24K", "22K", "21K", "18K", "14K", "10K"];
 function MasukForm() {
   const { userId } = useAuth();
 
-  const [lmEntryType, setLmEntryType] = useState<"beli" | "stok_awal">("beli");
+  const [lmEntryType, setLmEntryType] = useState<"beli" | "stok_awal">("stok_awal");
 
   const [lm, setLm] = useState({
     namaProduct: PRODUK_LM[0] as string,
@@ -144,28 +144,18 @@ function MasukForm() {
         <form onSubmit={submitLm} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Jenis Pencatatan */}
           <div className="md:col-span-2 space-y-2">
-            <Label>Jenis Pencatatan <span className="text-destructive">*</span></Label>
+            <Label>Jenis Pencatatan <span className="text-muted-foreground text-xs font-normal">(pilih salah satu)</span> <span className="text-destructive">*</span></Label>
             <div className="flex rounded-md border border-input overflow-hidden h-10">
-              <button type="button" onClick={() => setLmEntryType("beli")}
-                className={`flex-1 text-sm transition-colors ${lmEntryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
-                Ganti Stok
-              </button>
               <button type="button" onClick={() => setLmEntryType("stok_awal")}
-                className={`flex-1 text-sm border-l border-input transition-colors ${lmEntryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
+                className={`flex-1 text-sm transition-colors ${lmEntryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
                 Tambah Stok
+              </button>
+              <button type="button" onClick={() => setLmEntryType("beli")}
+                className={`flex-1 text-sm border-l border-input transition-colors ${lmEntryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
+                Ganti Stok
               </button>
             </div>
             <div className="rounded-lg border border-border/50 bg-transparent px-4 py-3 flex gap-4">
-              <div className="flex-1 space-y-1">
-                <p className="text-xs font-medium text-foreground">Ganti Stok</p>
-                <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
-                  <li>Emas dibeli setelah melakukan penjualan</li>
-                  <li>Gramasi sesuai dengan yang sudah dijual</li>
-                  <li>Harga beli masuk Keuntungan Ganti Emas</li>
-                  <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
-                </ul>
-              </div>
-              <div className="w-px bg-border/40 shrink-0" />
               <div className="flex-1 space-y-1">
                 <p className="text-xs font-medium text-foreground">Tambah Stok</p>
                 <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
@@ -173,6 +163,16 @@ function MasukForm() {
                   <li>Tidak perlu sama gramasinya dengan yang dijual</li>
                   <li>Harga beli masuk perhitungan HPP di dashboard</li>
                   <li>Mempengaruhi Keuntungan HPP di dashboard</li>
+                </ul>
+              </div>
+              <div className="w-px bg-border/40 shrink-0" />
+              <div className="flex-1 space-y-1">
+                <p className="text-xs font-medium text-foreground">Ganti Stok</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
+                  <li>Emas dibeli setelah melakukan penjualan</li>
+                  <li>Gramasi sesuai dengan yang sudah dijual</li>
+                  <li>Harga beli masuk Keuntungan Ganti Emas</li>
+                  <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
                 </ul>
               </div>
             </div>

@@ -27,7 +27,7 @@ function MasukPage() {
       <div className="mb-8">
         <TransactionForm type="masuk" />
       </div>
-      <TransactionTable filterType="masuk" title="Riwayat Barang Masuk" showDateFilter />
+      <TransactionTable filterType="masuk" title="Riwayat Barang Masuk" showDateFilter defaultSearchField="asalBarang" />
     </AppShell>
   );
 }

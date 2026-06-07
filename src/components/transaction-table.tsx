@@ -10,7 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, ArrowDownToLine, ArrowUpFromLine, Pencil, ChevronLeft, ChevronRight, Search, FileText, X, Eye } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +24,7 @@ import {
 import { EditTransactionDialog } from "@/components/edit-transaction-dialog";
 import { InvoiceGeneratorDialog, type InvoiceGeneratorData } from "@/components/invoice-generator";
 
-const PAGE_SIZE = 3;
+const PAGE_SIZE_OPTIONS = [5, 10, 15];
 
 type SingleRow  = { kind: "single"; tx: Transaction };
 type BatchRow   = { kind: "batch";  batchId: string; txs: Transaction[]; date: string; totalGramasi: number; totalHarga: number; pembeli?: string };
@@ -176,6 +176,8 @@ interface Props {
   filterDateFrom?: string;
   filterDateTo?: string;
   showDateFilter?: boolean;
+  defaultSearchField?: "pembeli" | "asalBarang" | "gramasi" | "noSeri";
+  hideCategoryFilter?: boolean;
 }
 
 function PageControls({
@@ -243,10 +245,12 @@ function PageControls({
   );
 }
 
-export function TransactionTable({ filterType, title = "Riwayat Transaksi", filterYear, filterMonth, filterCat: extCat, filterDateFrom: extDateFrom, filterDateTo: extDateTo, showDateFilter }: Props) {
+export function TransactionTable({ filterType, title = "Riwayat Transaksi", filterYear, filterMonth, filterCat: extCat, filterDateFrom: extDateFrom, filterDateTo: extDateTo, showDateFilter, defaultSearchField = "pembeli", hideCategoryFilter = false }: Props) {
   const { tx: all, loading } = useTransactions();
   const [cat, setCat] = useState<"all" | "logam_mulia" | "perhiasan">("all");
   const [search, setSearch] = useState("");
+  const [pageSize, setPageSize] = useState(5);
+  const [searchField, setSearchField] = useState<"pembeli" | "asalBarang" | "gramasi" | "noSeri">(defaultSearchField);
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
   const [editTarget, setEditTarget] = useState<Transaction | null>(null);
@@ -302,25 +306,24 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
     const grouped = groupTransactions(filtered);
     if (!search.trim()) return grouped;
     const q = search.toLowerCase();
+    const matchTx = (t: Transaction): boolean => {
+      if (searchField === "gramasi") return t.gramasi === parseFloat(q);
+      return t[searchField]?.toLowerCase().includes(q) ?? false;
+    };
     return grouped.filter((r) => {
-      if (r.kind === "batch") {
-        return r.pembeli?.toLowerCase().includes(q) ||
-               r.txs.some((t) => t.asalBarang?.toLowerCase().includes(q));
-      }
-      const t = r.tx;
-      return t.pembeli?.toLowerCase().includes(q) ||
-             t.asalBarang?.toLowerCase().includes(q);
+      if (r.kind === "batch") return r.txs.some(matchTx);
+      return matchTx(r.tx);
     });
-  }, [filtered, search]);
+  }, [filtered, search, searchField]);
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
 
-  useEffect(() => { setPage(1); }, [cat, filterType, search]);
+  useEffect(() => { setPage(1); }, [cat, filterType, search, searchField, pageSize]);
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
-  const list = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const start = rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const end = Math.min(page * PAGE_SIZE, rows.length);
+  const list = rows.slice((page - 1) * pageSize, page * pageSize);
+  const start = rows.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, rows.length);
 
   return (
     <>
@@ -333,13 +336,18 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             {/* Kiri: Tabs + Date sejajar */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Tabs value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
-                <TabsList className="w-full sm:w-auto">
-                  <TabsTrigger value="all" className="flex-1 sm:flex-none">Semua</TabsTrigger>
-                  <TabsTrigger value="logam_mulia" className="flex-1 sm:flex-none">Logam Mulia</TabsTrigger>
-                  <TabsTrigger value="perhiasan" className="flex-1 sm:flex-none">Perhiasan</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {!hideCategoryFilter && (
+                <Select value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
+                  <SelectTrigger className="h-8 text-xs w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kategori</SelectItem>
+                    <SelectItem value="logam_mulia">Logam Mulia</SelectItem>
+                    <SelectItem value="perhiasan">Perhiasan</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
               {showDateFilter && (
                 <div className="flex sm:inline-flex items-center gap-1.5">
@@ -356,11 +364,29 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
               )}
             </div>
 
-            {/* Kanan: Search */}
-            <div className="relative w-full sm:w-52 shrink-0">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-              <Input placeholder="Cari pembeli / asal..." value={search}
-                onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8 text-sm w-full" />
+            {/* Kanan: Search gabung dropdown */}
+            <div className="flex items-center w-full sm:w-auto sm:max-w-[240px] min-w-0 rounded-md border border-input bg-background focus-within:ring-1 focus-within:ring-ring h-8 overflow-hidden">
+              <Select value={searchField} onValueChange={(v) => { setSearchField(v as typeof searchField); setSearch(""); }}>
+                <SelectTrigger className="h-full text-xs w-24 shrink-0 border-0 border-r rounded-none shadow-none focus:ring-0 bg-muted/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {filterType !== "masuk" && <SelectItem value="pembeli">Pembeli</SelectItem>}
+                  {filterType !== "keluar" && <SelectItem value="asalBarang">Asal Barang</SelectItem>}
+                  <SelectItem value="gramasi">Gramasi</SelectItem>
+                  <SelectItem value="noSeri">No. Seri (SN)</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Cari..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-full w-full pl-2 pr-8 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                />
+                <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
@@ -485,9 +511,22 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
         {/* Pagination */}
         {rows.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 sm:px-6 py-2 border-t border-border">
-            <p className="text-xs text-muted-foreground order-2 sm:order-1">
-              Menampilkan {start}–{end} dari {rows.length} entri
-            </p>
+            <div className="flex items-center gap-2 order-2 sm:order-1">
+              <p className="text-xs text-muted-foreground">
+                Menampilkan {start}–{end} dari {rows.length} entri
+              </p>
+              <div className="flex items-center gap-1">
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setPageSize(n)}
+                    className={`h-6 w-7 text-xs rounded border transition-colors ${pageSize === n ? "bg-primary text-primary-foreground border-primary" : "border-input hover:bg-muted"}`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="order-1 sm:order-2">
               <PageControls page={page} total={totalPages} onChange={setPage} />
             </div>

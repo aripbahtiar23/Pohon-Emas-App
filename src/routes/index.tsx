@@ -355,6 +355,7 @@ function Dashboard() {
         filterYear={filterYear}
         filterMonth={filterMonth}
         filterCat={filterCat}
+        hideCategoryFilter
       />
     </AppShell>
   );

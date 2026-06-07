@@ -27,7 +27,7 @@ function KeluarPage() {
       <div className="mb-8">
         <TransactionForm type="keluar" />
       </div>
-      <TransactionTable filterType="keluar" title="Riwayat Barang Keluar" showDateFilter />
+      <TransactionTable filterType="keluar" title="Riwayat Barang Keluar" showDateFilter defaultSearchField="pembeli" />
     </AppShell>
   );
 }
