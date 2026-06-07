@@ -329,13 +329,14 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
     <>
       <div className="rounded-xl border border-border bg-card shadow-soft">
         <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-border">
-          {/* Row 1: judul */}
-          <h3 className="font-semibold tracking-tight">{title}</h3>
+          {/* Judul — row terpisah hanya jika ada filter kategori (masuk/keluar) */}
+          {!hideCategoryFilter && <h3 className="font-semibold tracking-tight">{title}</h3>}
 
-          {/* Desktop: [Tabs][Date] kiri — [Search] kanan | Mobile: stacked */}
+          {/* Desktop: [Judul/Tabs][Date] kiri — [Search] kanan | Mobile: stacked */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            {/* Kiri: Tabs + Date sejajar */}
+            {/* Kiri: judul sejajar search (dashboard) atau Tabs + Date (masuk/keluar) */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              {hideCategoryFilter && <h3 className="font-semibold tracking-tight">{title}</h3>}
               {!hideCategoryFilter && (
                 <Select value={cat} onValueChange={(v) => setCat(v as typeof cat)}>
                   <SelectTrigger className="h-8 text-xs w-36">
