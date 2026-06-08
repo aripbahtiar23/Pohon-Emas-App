@@ -140,7 +140,8 @@ function Dashboard() {
   // Total Omzet = sum harga jual produk saja, tanpa ongkir dan biaya operasional
   const totalPenjualan = s.totalJual;
   // Keuntungan Ganti Stok = total harga jual keluar − total harga beli masuk Ganti Stok (periode)
-  const keuntunganBeliEmas = totalPenjualan - masukGantiStokHarga;
+  // Jika tidak ada masuk Ganti Stok = 0 (bukan total omzet)
+  const keuntunganBeliEmas = countGantiMasuk > 0 ? totalPenjualan - masukGantiStokHarga : 0;
   // Keuntungan Total Penjualan = Total Omzet - Total Modal Barang Terjual
   const keuntunganHPP = totalPenjualan - hpp;
 
