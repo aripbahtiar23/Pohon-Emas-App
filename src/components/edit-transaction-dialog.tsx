@@ -38,7 +38,7 @@ interface Props {
 export function EditTransactionDialog({ tx, open, onClose }: Props) {
   const { userId } = useAuth();
   const [fields, setFields] = useState<Record<string, string>>({});
-  const [entryType, setEntryType] = useState<"beli" | "stok_awal">("beli");
+  const [entryType, setEntryType] = useState<"beli" | "stok_awal" | "buyback">("beli");
   const [opsItems, setOpsItems] = useState<{ id: string; amount: string; label: string }[]>([
     { id: crypto.randomUUID(), amount: "", label: "" },
   ]);
@@ -61,7 +61,10 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
         ongkir: ongkirVal > 0 ? formatRupiah(String(ongkirVal)) : "",
       });
     } else if (tx.category === "logam_mulia") {
-      setEntryType(tx.notes?.includes("entry_type:stok_awal") ? "stok_awal" : "beli");
+      setEntryType(
+        tx.notes?.includes("entry_type:stok_awal") ? "stok_awal" :
+        tx.notes?.includes("entry_type:buyback")   ? "buyback" : "beli"
+      );
       setFields({
         namaProduct: tx.namaProduct ?? PRODUK_LM[0],
         gramasi: String(tx.gramasi),
@@ -134,7 +137,9 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           noSeri: fields.noSeri.trim(), harga,
           nomerRef: fields.nomerRef.trim() || undefined,
           asalBarang: fields.asalBarang.trim() || undefined, date,
-          notes: entryType === "stok_awal" ? "entry_type:stok_awal" : "",
+          notes: entryType === "stok_awal" ? "entry_type:stok_awal"
+               : entryType === "buyback"   ? "entry_type:buyback"
+               : "",
         });
       } else {
         const gramasi = parseFloat(fields.gramasi);
@@ -156,7 +161,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90dvh] overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle>
             Edit {tx.type === "masuk" ? "Barang Masuk" : "Barang Keluar"}
@@ -193,38 +198,30 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           {tx.type === "masuk" && tx.category === "logam_mulia" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 sm:col-span-2">
-                <Label>Jenis Pencatatan <span className="text-muted-foreground text-xs font-normal">(pilih salah satu)</span> <span className="text-destructive">*</span></Label>
-                <div className="flex rounded-md border border-input overflow-hidden h-10">
-                  <button type="button" onClick={() => setEntryType("stok_awal")}
-                    className={`flex-1 text-sm transition-colors ${entryType === "stok_awal" ? "bg-amber-600 text-white" : "bg-background hover:bg-muted"}`}>
-                    Tambah Stok
-                  </button>
-                  <button type="button" onClick={() => setEntryType("beli")}
-                    className={`flex-1 text-sm border-l border-input transition-colors ${entryType === "beli" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>
-                    Ganti Stok
-                  </button>
-                </div>
-                <div className="rounded-lg border border-border/50 bg-transparent px-4 py-3 flex gap-4">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-foreground">Tambah Stok</p>
-                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
-                      <li>Emas yang kamu miliki atau beli untuk menambah stok saat ini</li>
-                      <li>Tidak perlu sama gramasinya dengan yang dijual</li>
-                      <li>Harga beli masuk perhitungan HPP di dashboard</li>
-                      <li>Mempengaruhi Keuntungan HPP di dashboard</li>
-                    </ul>
-                  </div>
-                  <div className="w-px bg-border/40 shrink-0" />
-                  <div className="flex-1 space-y-1">
-                    <p className="text-xs font-medium text-foreground">Ganti Stok</p>
-                    <ul className="text-xs text-muted-foreground space-y-0.5 list-disc list-inside">
-                      <li>Emas dibeli setelah melakukan penjualan</li>
-                      <li>Gramasi sesuai dengan yang sudah dijual</li>
-                      <li>Harga beli masuk Keuntungan Ganti Emas</li>
-                      <li>Mempengaruhi Keuntungan Ganti Emas di dashboard</li>
-                    </ul>
-                  </div>
-                </div>
+                <Label>Jenis Pencatatan <span className="text-destructive">*</span></Label>
+                <Select value={entryType} onValueChange={(v) => setEntryType(v as typeof entryType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stok_awal">Tambah Stok</SelectItem>
+                    <SelectItem value="beli">Ganti Stok</SelectItem>
+                    <SelectItem value="buyback">Buyback</SelectItem>
+                  </SelectContent>
+                </Select>
+                {entryType === "stok_awal" && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                    <span className="font-medium text-foreground">Tambah Stok:</span> Emas baru untuk menambah stok. Tidak perlu sesuai gramasi yang dijual. Masuk perhitungan HPP & modal.
+                  </p>
+                )}
+                {entryType === "beli" && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                    <span className="font-medium text-foreground">Ganti Stok:</span> Emas dibeli setelah melakukan penjualan. Gramasi sesuai yang dijual. Mempengaruhi Keuntungan Ganti Stok di dashboard.
+                  </p>
+                )}
+                {entryType === "buyback" && (
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+                    <span className="font-medium text-foreground">Buyback:</span> Emas dibeli kembali dari pelanggan. Perlu cepat dijual kembali untuk profit. Mempengaruhi Keuntungan Buyback di dashboard.
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Nama Product <span className="text-destructive">*</span></Label>
@@ -352,7 +349,7 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
             </div>
           )}
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-2 gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Batal</Button>
             <Button type="submit" className="bg-gradient-gold text-gold-foreground hover:opacity-90">
               Simpan Perubahan

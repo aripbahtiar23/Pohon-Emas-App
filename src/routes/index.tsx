@@ -7,7 +7,7 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { formatGr, formatIDR, summarize } from "@/lib/goldbook";
 import { supabase } from "@/lib/supabase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, Activity, RotateCcw, Info, ShoppingCart } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Coins, TrendingUp, TrendingDown, Scale, Gem, Landmark, RotateCcw, Info, ShoppingCart } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -111,9 +111,9 @@ function Dashboard() {
 
   const sStock = summarize(stockTx);
 
-  const { hpp, keuntunganGantiStok, countGantiMasuk, countTotalKeluar, countTotalMasuk } = useMemo(() => {
+  const { hpp, keuntunganGantiStok, keuntunganBuyback, countGantiMasuk, countBuybackKeluar, countTotalKeluar, countTotalMasuk } = useMemo(() => {
     const masukMap = new Map(tx.filter(t => t.type === "masuk").map(t => [t.id, t]));
-    let hppTotal = 0;
+    let hppTotal = 0, buybackProfit = 0, buybackKeluar = 0;
     for (const t of filteredTx) {
       if (t.type !== "keluar") continue;
       if (t.notes) {
@@ -123,17 +123,28 @@ function Dashboard() {
       }
       if (t.sourceId) {
         const masuk = masukMap.get(t.sourceId);
-        if (masuk) hppTotal += masuk.harga;
+        if (masuk) {
+          hppTotal += masuk.harga;
+          // Keuntungan Buyback: item-level via sourceId
+          if (masuk.notes?.includes("entry_type:buyback")) {
+            buybackProfit += t.harga - masuk.harga;
+            buybackKeluar++;
+          }
+        }
       }
     }
 
     // Opsi B: proses SEMUA Ganti Stok kronologis (lintas periode), hitung profit hanya
     // untuk Ganti Stok yang masuk periode filter — cegah double-count lintas bulan.
+    // Buyback dikecualikan dari Ganti Stok matching.
     const catFilter = (t: (typeof tx)[0]) => filterCat === "all" || t.category === filterCat;
     const filteredIds = new Set(filteredTx.map(t => t.id));
 
     const allGantiMasuk = tx
-      .filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal") && catFilter(t))
+      .filter(t => t.type === "masuk"
+        && !t.notes?.includes("entry_type:stok_awal")
+        && !t.notes?.includes("entry_type:buyback")
+        && catFilter(t))
       .sort((a, b) => new Date(a.createdAt ?? a.date).getTime() - new Date(b.createdAt ?? b.date).getTime());
 
     let keluarPool = tx
@@ -145,23 +156,21 @@ function Dashboard() {
       const matchIdx = keluarPool.findIndex(k => k.gramasi === masuk.gramasi);
       if (matchIdx >= 0) {
         const matched = keluarPool[matchIdx];
-        // Profit hanya dihitung jika Ganti Stok ini ada di periode filter
         if (filteredIds.has(masuk.id)) gsProfit += matched.harga - masuk.harga;
         keluarPool.splice(matchIdx, 1);
       }
     }
 
-    const gantiMasukInFilter = filteredTx.filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal"));
+    const gantiMasukInFilter = filteredTx.filter(t => t.type === "masuk"
+      && !t.notes?.includes("entry_type:stok_awal")
+      && !t.notes?.includes("entry_type:buyback"));
     const totalKeluar = filteredTx.filter(t => t.type === "keluar").length;
     const totalMasuk  = filteredTx.filter(t => t.type === "masuk").length;
-    return { hpp: hppTotal, keuntunganGantiStok: gsProfit, countGantiMasuk: gantiMasukInFilter.length, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
+    return { hpp: hppTotal, keuntunganGantiStok: gsProfit, keuntunganBuyback: buybackProfit, countGantiMasuk: gantiMasukInFilter.length, countBuybackKeluar: buybackKeluar, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
   }, [tx, filteredTx, filterCat]);
 
-  // Total Omzet = sum harga jual produk saja, tanpa ongkir dan biaya operasional
   const totalPenjualan = s.totalJual;
-  // Keuntungan Ganti Stok = selisih per keping (match gramasi Ganti Stok masuk ↔ keluar)
   const keuntunganBeliEmas = keuntunganGantiStok;
-  // Keuntungan Total Penjualan = Total Omzet - Total Modal Barang Terjual
   const keuntunganHPP = totalPenjualan - hpp;
 
   const [hargaList, setHargaList]       = useState<HargaRow[]>([]);
@@ -263,8 +272,9 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* Row 1 — Total Aset + Pergerakan Harga */}
+      {/* Row 1 — Total Aset + Keuntungan Ganti Stok & Buyback */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+        {/* Total Aset + Pergerakan Harga (digabung) */}
         <div className="rounded-xl bg-gradient-gold text-gold-foreground border-transparent p-3 shadow-elegant">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gold-foreground/80">
@@ -288,44 +298,48 @@ function Dashboard() {
           ) : (
             <p className="text-sm text-gold-foreground/70">Menunggu data harga...</p>
           )}
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-3 shadow-soft">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-              <Activity className="size-4 text-gold-deep shrink-0" /> Pergerakan Harga Emas Hari Ini
-            </div>
-            <Link to="/harga" className="text-xs text-primary hover:underline">Detail →</Link>
-          </div>
-          {!harga1grHariIni ? (
-            <p className="text-sm text-muted-foreground">Data belum tersedia.</p>
-          ) : !harga1grKemarin ? (
-            <p className="text-sm text-muted-foreground">Data kemarin belum ada.</p>
-          ) : (() => {
+          {/* Pergerakan harga inline */}
+          {harga1grHariIni && harga1grKemarin && (() => {
             const diff = harga1grHariIni - harga1grKemarin;
-            const pct  = (diff / harga1grKemarin) * 100;
-            if (diff === 0) return <p className="text-sm text-muted-foreground">Belum ada pergerakan.</p>;
+            if (diff === 0) return null;
+            const pct = (diff / harga1grKemarin) * 100;
             return (
-              <div className={`flex items-center gap-2 font-bold ${diff > 0 ? "text-success" : "text-destructive"}`}>
-                {diff > 0 ? <TrendingUp className="size-5" /> : <TrendingDown className="size-5" />}
-                <div>
-                  <div className="text-lg md:text-xl">{diff > 0 ? "Naik" : "Turun"} {formatIDR(Math.abs(diff))}</div>
-                  <div className="text-xs font-normal text-muted-foreground">{Math.abs(pct).toFixed(2)}% dibandingkan kemarin</div>
-                </div>
+              <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gold-foreground/20 text-xs text-gold-foreground/90">
+                {diff > 0 ? <TrendingUp className="size-3.5 shrink-0" /> : <TrendingDown className="size-3.5 shrink-0" />}
+                <span>Pergerakan Harga hari ini : <span className={`font-bold ${diff > 0 ? "text-green-300" : "text-red-300"}`}>{diff > 0 ? "Naik" : "Turun"} {formatIDR(Math.abs(diff))}/gr ({Math.abs(pct).toFixed(2)}%)</span></span>
               </div>
             );
           })()}
         </div>
+
+        {/* Keuntungan Ganti Stok + Buyback */}
+        <div className="rounded-xl bg-gradient-gold text-gold-foreground border-transparent p-3 shadow-elegant">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm text-gold-foreground/80 mb-2">
+            <TrendingUp className="size-4 shrink-0" />
+            <span>Total Keuntungan Trading</span>
+            <InfoTip text="Gabungan Keuntungan Ganti Stok dan Keuntungan Buyback dalam periode yang dipilih." accent />
+          </div>
+          <div className="text-lg md:text-2xl font-semibold tracking-tight tabular-nums">
+            {formatIDR(keuntunganBeliEmas + keuntunganBuyback)}
+          </div>
+          <div className="mt-2 pt-2 border-t border-gold-foreground/20 grid grid-cols-2 gap-x-3 text-xs text-gold-foreground/80">
+            <div>
+              <span className="block text-gold-foreground/60">Keuntungan Ganti Stok</span>
+              <span className="font-medium tabular-nums">{formatIDR(keuntunganBeliEmas)}</span>
+            </div>
+            <div>
+              <span className="block text-gold-foreground/60">Keuntungan Buyback</span>
+              <span className="font-medium tabular-nums">{formatIDR(keuntunganBuyback)}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Row 2 — Keuntungan (accent) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-        <Stat label="Keuntungan Ganti Stok" value={formatIDR(keuntunganBeliEmas)} icon={TrendingUp}
-          sub={`${countTotalKeluar} terjual · ${countGantiMasuk} masuk ganti stok`}
-          tooltip="Selisih total harga jual barang keluar dengan total harga beli barang masuk bertipe Ganti Stok dalam periode yang sama." />
+      {/* Row 2 — Keuntungan */}
+      <div className="grid grid-cols-1 gap-2 mb-2">
         <Stat label="Keuntungan Total Penjualan" value={formatIDR(keuntunganHPP)} icon={TrendingUp}
           sub={`${countTotalKeluar} terjual · ${countTotalMasuk} barang masuk`}
-          tooltip="Keuntungan dari transaksi Tambah Stok — total penjualan dikurangi Harga Pokok Penjualan (HPP) dan biaya jual." />
+          tooltip="Total omzet dikurangi Harga Pokok Penjualan (HPP) semua barang terjual." />
       </div>
 
       {/* Row 3 — Total Modal + HPP + Total Omzet */}
