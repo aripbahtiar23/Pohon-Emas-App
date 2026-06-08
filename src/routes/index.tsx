@@ -132,7 +132,7 @@ function Dashboard() {
           hppTotal += masuk.harga;
           // Keuntungan Buyback: item-level via sourceId
           if (masuk.entryType === "buyback") {
-            buybackProfit += t.harga - masuk.harga;
+            buybackProfit += t.harga - masuk.harga - opsTotal;
             buybackKeluar++;
           }
         }
