@@ -13,10 +13,12 @@ import {
 } from "@/components/ui/select";
 import {
   insertTx,
+  insertCosts,
   fetchAvailableStock,
   formatGr,
   formatIDR,
   PRODUK_LM,
+  type CostType,
   type Transaction,
   type TxType,
 } from "@/lib/goldbook";
@@ -398,7 +400,7 @@ function SaleForm() {
     try {
       const date = new Date(tanggal + "T00:00:00").toISOString();
       const batchId = resolvedItems.length > 1 ? crypto.randomUUID() : undefined;
-      await Promise.all(resolvedItems.map(({ item, stock: s }, idx) =>
+      const txIds = await Promise.all(resolvedItems.map(({ item, stock: s }) =>
         insertTx(userId, {
           type: "keluar",
           category: s!.category,
@@ -413,15 +415,17 @@ function SaleForm() {
           sourceId: s!.id,
           pembeli: pembeli.trim() || undefined,
           batchId,
-          // biaya jual hanya disimpan di item pertama (per transaksi, bukan per barang)
-          notes: idx === 0 ? (() => {
-            const parts: string[] = [];
-            if (ongkirNum > 0) parts.push(`ongkir:${ongkirNum}`);
-            opsItems.forEach((op) => { const a = parseRupiah(op.amount) || 0; if (a > 0) parts.push(`ops:${a}:${op.label.trim()}`); });
-            return parts.length ? parts.join("|") : undefined;
-          })() : undefined,
         })
       ));
+      // Biaya (ongkir + operasional) disimpan di tabel transaction_costs, linked ke item pertama
+      const costs: Array<{ transactionId: string; type: CostType; amount: number; keterangan?: string }> = [];
+      if (ongkirNum > 0) costs.push({ transactionId: txIds[0], type: "ongkir", amount: ongkirNum, keterangan: "Ongkos kirim" });
+      opsItems.forEach((op) => {
+        const a = parseRupiah(op.amount) || 0;
+        if (a > 0) costs.push({ transactionId: txIds[0], type: "operasional", amount: a, keterangan: op.label.trim() || undefined });
+      });
+      if (costs.length) await insertCosts(costs);
+
       toast.success(`${resolvedItems.length} barang berhasil dicatat`);
       setItems([emptyRow()]); setPembeli(""); setTanggal(todayStr());
       setOngkir("");

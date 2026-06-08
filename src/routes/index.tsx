@@ -116,11 +116,16 @@ function Dashboard() {
     let hppTotal = 0, buybackProfit = 0, buybackKeluar = 0;
     for (const t of filteredTx) {
       if (t.type !== "keluar") continue;
-      if (t.notes) {
-        const opsTotal = [...t.notes.matchAll(/ops:(\d+):[^|]*/g)].reduce((s, m) => s + parseInt(m[1]), 0)
-          || parseInt(t.notes.match(/biaya_ops:(\d+)/)?.[1] ?? t.notes.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
-        if (opsTotal > 0) hppTotal += opsTotal;
-      }
+      // Baca biaya operasional dari transaction_costs, fallback ke notes lama
+      const opsFromCosts = (t.costs ?? [])
+        .filter(c => c.type === "operasional")
+        .reduce((s, c) => s + c.amount, 0);
+      const opsFromNotes = opsFromCosts === 0 && t.notes
+        ? ([...t.notes.matchAll(/ops:(\d+):[^|]*/g)].reduce((s, m) => s + parseInt(m[1]), 0)
+            || parseInt(t.notes.match(/biaya_ops:(\d+)/)?.[1] ?? t.notes.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0)
+        : 0;
+      const opsTotal = opsFromCosts + opsFromNotes;
+      if (opsTotal > 0) hppTotal += opsTotal;
       if (t.sourceId) {
         const masuk = masukMap.get(t.sourceId);
         if (masuk) {

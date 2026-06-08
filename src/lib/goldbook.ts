@@ -3,6 +3,15 @@ import { supabase } from "./supabase";
 export type Category   = "logam_mulia" | "perhiasan";
 export type TxType     = "masuk" | "keluar";
 export type EntryType  = "tambah_stok" | "ganti_stok" | "buyback";
+export type CostType   = "ongkir" | "operasional";
+
+export interface TransactionCost {
+  id: string;
+  transactionId: string;
+  type: CostType;
+  amount: number;
+  keterangan?: string;
+}
 
 export const PRODUK_LM = [
   "UBS",
@@ -31,6 +40,7 @@ export interface Transaction {
   sourceId?: string;
   pembeli?: string;
   batchId?: string;
+  costs?: TransactionCost[];
 }
 
 // ── DB row ↔ app type mappers ─────────────────────────────────────────────────
@@ -45,6 +55,15 @@ function dbToTx(row: any): Transaction {
         : "ganti_stok"
       : undefined
   );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const costs: TransactionCost[] = (row.transaction_costs ?? []).map((c: any) => ({
+    id:            c.id,
+    transactionId: c.transaction_id,
+    type:          c.type as CostType,
+    amount:        Number(c.amount),
+    keterangan:    c.keterangan ?? undefined,
+  }));
 
   return {
     id:          row.id,
@@ -65,6 +84,7 @@ function dbToTx(row: any): Transaction {
     sourceId:    row.source_id     ?? undefined,
     pembeli:     row.pembeli       ?? undefined,
     batchId:     row.batch_id      ?? undefined,
+    costs:       costs.length > 0 ? costs : undefined,
   };
 }
 
@@ -95,20 +115,51 @@ function txToDb(userId: string, tx: Omit<Transaction, "id">) {
 export async function fetchTx(userId: string): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from("transactions")
-    .select("*")
+    .select("*, transaction_costs(*)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(dbToTx);
 }
 
-export async function insertTx(userId: string, tx: Omit<Transaction, "id">): Promise<void> {
-  const { error } = await supabase
+export async function insertTx(userId: string, tx: Omit<Transaction, "id" | "costs">): Promise<string> {
+  const { data, error } = await supabase
     .from("transactions")
-    .insert(txToDb(userId, tx));
+    .insert(txToDb(userId, tx))
+    .select("id")
+    .single();
   if (error) throw error;
-  // Force update pada hook useTransactions (fallback jika realtime lambat)
   if (typeof window !== "undefined") window.dispatchEvent(new Event("goldbook:update"));
+  return data.id;
+}
+
+export async function insertCosts(
+  costs: Array<{ transactionId: string; type: CostType; amount: number; keterangan?: string }>,
+): Promise<void> {
+  if (!costs.length) return;
+  const { error } = await supabase.from("transaction_costs").insert(
+    costs.map((c) => ({
+      transaction_id: c.transactionId,
+      type:           c.type,
+      amount:         c.amount,
+      keterangan:     c.keterangan ?? null,
+    })),
+  );
+  if (error) throw error;
+}
+
+export async function replaceCosts(
+  transactionId: string,
+  costs: Array<{ type: CostType; amount: number; keterangan?: string }>,
+): Promise<void> {
+  const { error: delErr } = await supabase
+    .from("transaction_costs")
+    .delete()
+    .eq("transaction_id", transactionId);
+  if (delErr) throw delErr;
+  if (costs.length) {
+    await insertCosts(costs.map((c) => ({ ...c, transactionId })));
+  }
 }
 
 export async function removeBatch(batchId: string): Promise<void> {

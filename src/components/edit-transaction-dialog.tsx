@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatGr, formatIDR, PRODUK_LM, patchTx, type Transaction } from "@/lib/goldbook";
+import { formatGr, formatIDR, PRODUK_LM, patchTx, replaceCosts, type CostType, type Transaction } from "@/lib/goldbook";
 import { formatRupiah, parseRupiah } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
@@ -46,12 +46,24 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
   useEffect(() => {
     if (!tx) return;
     if (tx.type === "keluar") {
-      const ongkirVal = parseInt(tx.notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
-      const parsedOps = tx.notes ? [...tx.notes.matchAll(/ops:(\d+):([^|]*)/g)].map((m) => ({ id: crypto.randomUUID(), amount: formatRupiah(m[1]), label: m[2] })) : [];
-      if (parsedOps.length === 0) {
-        const legacy = parseInt(tx.notes?.match(/biaya_ops:(\d+)/)?.[1] ?? tx.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
-        if (legacy > 0) parsedOps.push({ id: crypto.randomUUID(), amount: formatRupiah(String(legacy)), label: "" });
-      }
+      // Baca dari transaction_costs; fallback ke notes lama untuk data sebelum migration
+      const ongkirCost = tx.costs?.find(c => c.type === "ongkir");
+      const opsCosts   = tx.costs?.filter(c => c.type === "operasional") ?? [];
+      const ongkirVal  = ongkirCost?.amount
+        ?? (parseInt(tx.notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0);
+      const parsedOps: { id: string; amount: string; label: string }[] =
+        opsCosts.length > 0
+          ? opsCosts.map((c) => ({ id: crypto.randomUUID(), amount: formatRupiah(String(c.amount)), label: c.keterangan ?? "" }))
+          : tx.notes
+            ? (() => {
+                const ops = [...tx.notes.matchAll(/ops:(\d+):([^|]*)/g)].map((m) => ({ id: crypto.randomUUID(), amount: formatRupiah(m[1]), label: m[2] }));
+                if (ops.length === 0) {
+                  const legacy = parseInt(tx.notes?.match(/biaya_ops:(\d+)/)?.[1] ?? tx.notes?.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
+                  if (legacy > 0) ops.push({ id: crypto.randomUUID(), amount: formatRupiah(String(legacy)), label: "" });
+                }
+                return ops;
+              })()
+            : [];
       if (parsedOps.length < 1) parsedOps.push({ id: crypto.randomUUID(), amount: "", label: "" });
       setOpsItems(parsedOps);
       setFields({
@@ -100,13 +112,13 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
     try {
       if (tx.type === "keluar") {
         const ongkirNum = parseRupiah(fields.ongkir) || 0;
-        const parts: string[] = [];
-        if (ongkirNum > 0) parts.push(`ongkir:${ongkirNum}`);
-        opsItems.forEach((op) => { const a = parseRupiah(op.amount) || 0; if (a > 0) parts.push(`ops:${a}:${op.label.trim()}`); });
-        await patchTx(tx.id, {
-          harga, pembeli: fields.pembeli.trim() || undefined, date,
-          notes: parts.length ? parts.join("|") : "",
-        });
+        const costs: Array<{ type: CostType; amount: number; keterangan?: string }> = [];
+        if (ongkirNum > 0) costs.push({ type: "ongkir", amount: ongkirNum, keterangan: "Ongkos kirim" });
+        opsItems.forEach((op) => { const a = parseRupiah(op.amount) || 0; if (a > 0) costs.push({ type: "operasional", amount: a, keterangan: op.label.trim() || undefined }); });
+        await Promise.all([
+          patchTx(tx.id, { harga, pembeli: fields.pembeli.trim() || undefined, date }),
+          replaceCosts(tx.id, costs),
+        ]);
       } else if (tx.category === "logam_mulia") {
         const gramasi = parseFloat(fields.gramasi);
         if (!fields.noSeri?.trim()) return toast.error("No Seri wajib diisi");
