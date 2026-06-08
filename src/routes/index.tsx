@@ -111,37 +111,56 @@ function Dashboard() {
 
   const sStock = summarize(stockTx);
 
-  const { hpp, countGantiMasuk, masukGantiStokHarga, countTotalKeluar, countTotalMasuk } = useMemo(() => {
+  const { hpp, keuntunganGantiStok, countGantiMasuk, countTotalKeluar, countTotalMasuk } = useMemo(() => {
     const masukMap = new Map(tx.filter(t => t.type === "masuk").map(t => [t.id, t]));
-    let hppTotal = 0, biayaJual = 0;
+    let hppTotal = 0;
     for (const t of filteredTx) {
       if (t.type !== "keluar") continue;
       if (t.notes) {
         const opsTotal = [...t.notes.matchAll(/ops:(\d+):[^|]*/g)].reduce((s, m) => s + parseInt(m[1]), 0)
           || parseInt(t.notes.match(/biaya_ops:(\d+)/)?.[1] ?? t.notes.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
-        const ongkirTotal = parseInt(t.notes.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
         if (opsTotal > 0) hppTotal += opsTotal;
-        const b = opsTotal + ongkirTotal;
-        if (b > 0) biayaJual += b;
       }
       if (t.sourceId) {
         const masuk = masukMap.get(t.sourceId);
         if (masuk) hppTotal += masuk.harga;
       }
     }
-    // Ganti Stok masuk dalam periode filter
-    const gantiMasukItems = filteredTx.filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal"));
-    const gantiMasukHarga = gantiMasukItems.reduce((sum, t) => sum + t.harga, 0);
+
+    // Opsi B: proses SEMUA Ganti Stok kronologis (lintas periode), hitung profit hanya
+    // untuk Ganti Stok yang masuk periode filter — cegah double-count lintas bulan.
+    const catFilter = (t: (typeof tx)[0]) => filterCat === "all" || t.category === filterCat;
+    const filteredIds = new Set(filteredTx.map(t => t.id));
+
+    const allGantiMasuk = tx
+      .filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal") && catFilter(t))
+      .sort((a, b) => new Date(a.createdAt ?? a.date).getTime() - new Date(b.createdAt ?? b.date).getTime());
+
+    let keluarPool = tx
+      .filter(t => t.type === "keluar" && catFilter(t))
+      .sort((a, b) => new Date(a.createdAt ?? a.date).getTime() - new Date(b.createdAt ?? b.date).getTime());
+
+    let gsProfit = 0;
+    for (const masuk of allGantiMasuk) {
+      const matchIdx = keluarPool.findIndex(k => k.gramasi === masuk.gramasi);
+      if (matchIdx >= 0) {
+        const matched = keluarPool[matchIdx];
+        // Profit hanya dihitung jika Ganti Stok ini ada di periode filter
+        if (filteredIds.has(masuk.id)) gsProfit += matched.harga - masuk.harga;
+        keluarPool.splice(matchIdx, 1);
+      }
+    }
+
+    const gantiMasukInFilter = filteredTx.filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal"));
     const totalKeluar = filteredTx.filter(t => t.type === "keluar").length;
     const totalMasuk  = filteredTx.filter(t => t.type === "masuk").length;
-    return { hpp: hppTotal, countGantiMasuk: gantiMasukItems.length, masukGantiStokHarga: gantiMasukHarga, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
-  }, [tx, filteredTx]);
+    return { hpp: hppTotal, keuntunganGantiStok: gsProfit, countGantiMasuk: gantiMasukInFilter.length, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
+  }, [tx, filteredTx, filterCat]);
 
   // Total Omzet = sum harga jual produk saja, tanpa ongkir dan biaya operasional
   const totalPenjualan = s.totalJual;
-  // Keuntungan Ganti Stok = total harga jual keluar − total harga beli masuk Ganti Stok (periode)
-  // Jika tidak ada masuk Ganti Stok = 0 (bukan total omzet)
-  const keuntunganBeliEmas = countGantiMasuk > 0 ? totalPenjualan - masukGantiStokHarga : 0;
+  // Keuntungan Ganti Stok = selisih per keping (match gramasi Ganti Stok masuk ↔ keluar)
+  const keuntunganBeliEmas = keuntunganGantiStok;
   // Keuntungan Total Penjualan = Total Omzet - Total Modal Barang Terjual
   const keuntunganHPP = totalPenjualan - hpp;
 
