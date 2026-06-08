@@ -29,7 +29,7 @@ function loadJSON<T>(key: string, fallback: T): T {
 }
 
 export type InvoiceGeneratorData = {
-  transactionIds: string[];
+  batchId: string;
   items: InvoiceItemData[];
   date: string;
   pembeli?: string;
@@ -350,7 +350,7 @@ export function InvoiceGeneratorDialog({ data, open, onClose }: Props) {
   const getOrCreateNumber = useCallback(async () => {
     if (invoiceNumber) return invoiceNumber;
     if (!userId || !data) return "";
-    const { invoiceNumber: num } = await createInvoiceNumber(userId, data.date, data.transactionIds);
+    const { invoiceNumber: num } = await createInvoiceNumber(userId, data.date, data.batchId);
     setInvoiceNumber(num); setSaved(true);
     return num;
   }, [invoiceNumber, userId, data]);

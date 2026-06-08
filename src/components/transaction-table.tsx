@@ -263,35 +263,43 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
   const filterDateFrom = extDateFrom ?? (showDateFilter ? intDateFrom : undefined);
   const filterDateTo   = extDateTo   ?? (showDateFilter ? intDateTo   : undefined);
 
-  const parseOpsItems = (notes?: string): { amount: number; label: string }[] => {
-    if (!notes) return [];
+  // Baca ops dari transaction_costs, fallback ke notes lama
+  const getTxOpsItems = (t: Transaction): { amount: number; label: string }[] => {
+    if (t.costs) {
+      const ops = t.costs.filter(c => c.type === "operasional").map(c => ({ amount: c.amount, label: c.keterangan ?? "" }));
+      if (ops.length > 0) return ops;
+    }
+    if (!t.notes) return [];
     const items: { amount: number; label: string }[] = [];
-    for (const m of notes.matchAll(/ops:(\d+):([^|]*)/g)) items.push({ amount: parseInt(m[1]), label: m[2] });
+    for (const m of t.notes.matchAll(/ops:(\d+):([^|]*)/g)) items.push({ amount: parseInt(m[1]), label: m[2] });
     if (items.length === 0) {
-      const m = notes.match(/biaya_ops:(\d+)/) ?? notes.match(/biaya_jual:(\d+)/);
+      const m = t.notes.match(/biaya_ops:(\d+)/) ?? t.notes.match(/biaya_jual:(\d+)/);
       if (m) items.push({ amount: parseInt(m[1]), label: "" });
     }
     return items;
   };
-  const parseBiayaOps = (notes?: string) => parseOpsItems(notes).reduce((s, i) => s + i.amount, 0);
-  const parseOngkir = (notes?: string) => parseInt(notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0;
-  const parseBiaya = (notes?: string) => parseBiayaOps(notes) + parseOngkir(notes);
+  const getTxOngkir = (t: Transaction) =>
+    t.costs?.find(c => c.type === "ongkir")?.amount
+    ?? (parseInt(t.notes?.match(/ongkir:(\d+)/)?.[1] ?? "0") || 0);
+  const getTxTotalOps = (t: Transaction) => getTxOpsItems(t).reduce((s, i) => s + i.amount, 0);
+  const getTxTotalBiaya = (t: Transaction) => getTxTotalOps(t) + getTxOngkir(t);
 
   const openInvoiceSingle = (t: Transaction) => setInvoiceData({
-    transactionIds: [t.id],
+    batchId: t.batchId ?? t.id,
     date: t.date,
     pembeli: t.pembeli,
-    biayaLain: parseOngkir(t.notes),
+    biayaLain: getTxOngkir(t),
     items: [{ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga }],
   });
 
   const openInvoiceBatch = (row: BatchRow) => {
-    const firstWithNotes = row.txs.find(t => t.notes);
+    const firstWithCosts = row.txs.find(t => t.costs?.length);
+    const firstTx = firstWithCosts ?? row.txs[0];
     setInvoiceData({
-      transactionIds: row.txs.map((t) => t.id),
+      batchId: row.batchId,
       date: row.date,
       pembeli: row.pembeli,
-      biayaLain: parseOngkir(firstWithNotes?.notes),
+      biayaLain: getTxOngkir(firstTx),
       items: row.txs.map((t) => ({ id: t.id, category: t.category, namaProduct: t.namaProduct, kode: t.kode, karat: t.karat, noSeri: t.noSeri, gramasi: t.gramasi, harga: t.harga })),
     });
   };
@@ -607,9 +615,9 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             const t = detailTarget;
             const isMasuk = t.type === "masuk";
             const masukSrc = !isMasuk && t.sourceId ? all.find(m => m.id === t.sourceId) : null;
-            const opsItemsList = parseOpsItems(t.notes);
-            const ongkirItem = parseOngkir(t.notes);
-            const totalOpsItem = parseBiayaOps(t.notes);
+            const opsItemsList = getTxOpsItems(t);
+            const ongkirItem = getTxOngkir(t);
+            const totalOpsItem = getTxTotalOps(t);
             const keterangan = t.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
             const keuntunganItem = isMasuk ? null : t.harga - (masukSrc?.harga ?? 0) - totalOpsItem;
 
@@ -625,8 +633,8 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
                 {isMasuk && (
                   <div className="flex items-center justify-between py-2 border-b border-border">
                     <span className="text-sm text-muted-foreground">Jenis Pencatatan</span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.notes?.includes("entry_type:stok_awal") ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"}`}>
-                      {t.notes?.includes("entry_type:stok_awal") ? "Tambah Stok" : "Ganti Stok"}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.entryType === "tambah_stok" ? "bg-amber-100 text-amber-700" : t.entryType === "buyback" ? "bg-purple-100 text-purple-700" : "bg-primary/10 text-primary"}`}>
+                      {t.entryType === "tambah_stok" ? "Tambah Stok" : t.entryType === "buyback" ? "Buyback" : "Ganti Stok"}
                     </span>
                   </div>
                 )}
@@ -677,9 +685,10 @@ export function TransactionTable({ filterType, title = "Riwayat Transaksi", filt
             const row = batchDetailTarget;
             const masukMap = new Map(all.filter(t => t.type === "masuk").map(t => [t.id, t]));
             const firstWithNotes = row.txs.find(t => t.notes);
-            const opsItemsTrx = parseOpsItems(firstWithNotes?.notes);
-            const biayaOpsTrx = parseBiayaOps(firstWithNotes?.notes);
-            const ongkirTrx = parseOngkir(firstWithNotes?.notes);
+            const firstWithCosts = row.txs.find(t => t.costs?.length) ?? row.txs[0];
+            const opsItemsTrx = getTxOpsItems(firstWithCosts);
+            const biayaOpsTrx = getTxTotalOps(firstWithCosts);
+            const ongkirTrx = getTxOngkir(firstWithCosts);
             const biayaTrx = biayaOpsTrx + ongkirTrx;
             const ketTrx = firstWithNotes?.notes?.match(/ket:(.+)/)?.[1]?.trim() ?? "";
             const totalHargaBeli = row.txs.reduce((sum, t) => sum + (t.sourceId ? (masukMap.get(t.sourceId)?.harga ?? 0) : 0), 0);

@@ -399,7 +399,7 @@ function SaleForm() {
     setSubmitting(true);
     try {
       const date = new Date(tanggal + "T00:00:00").toISOString();
-      const batchId = resolvedItems.length > 1 ? crypto.randomUUID() : undefined;
+      const batchId = crypto.randomUUID();
       const txIds = await Promise.all(resolvedItems.map(({ item, stock: s }) =>
         insertTx(userId, {
           type: "keluar",

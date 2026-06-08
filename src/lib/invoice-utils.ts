@@ -32,9 +32,8 @@ function formatInvoiceNumber(seq: number, date: string): string {
 export async function createInvoiceNumber(
   userId: string,
   date: string,
-  transactionIds: string[],
+  batchId: string,
 ): Promise<{ invoiceNumber: string; sequence: number }> {
-  // Count existing invoices for this user
   const { count, error: countErr } = await supabase
     .from("invoices")
     .select("*", { count: "exact", head: true })
@@ -46,10 +45,10 @@ export async function createInvoiceNumber(
   const invoiceNumber = formatInvoiceNumber(sequence, date);
 
   const { error } = await supabase.from("invoices").insert({
-    user_id: userId,
-    invoice_number: invoiceNumber,
+    user_id:         userId,
+    invoice_number:  invoiceNumber,
     sequence_number: sequence,
-    transaction_ids: transactionIds,
+    batch_id:        batchId,
   });
 
   if (error) throw error;
