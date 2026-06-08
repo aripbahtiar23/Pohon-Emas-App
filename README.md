@@ -10,11 +10,11 @@ Aplikasi web PWA untuk reseller emas Indonesia. Mencatat transaksi masuk/keluar 
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| Dashboard | Compact stat cards, urutan: Total Aset → Keuntungan → Modal → Stok. Filter Kategori/Tahun/Bulan. Tooltip Popover tap-friendly. |
-| Barang Masuk | Form LM (Ganti Stok / Tambah Stok) & perhiasan. No Seri wajib & unik. Filter tanggal di riwayat. |
-| Barang Keluar | Multi-item, Biaya Jual opsional, Ringkasan Penjualan dengan keuntungan per transaksi. |
+| Dashboard | Total Aset (harga pasar), Keuntungan Ganti Stok + Buyback, Keuntungan Total Penjualan. Filter Kategori/Tahun/Bulan. Pergerakan harga emas hari ini. |
+| Barang Masuk | 3 jenis: Tambah Stok, Ganti Stok, Buyback. LM & perhiasan. No Seri wajib & unik. |
+| Barang Keluar | Multi-item, biaya ongkir + operasional (tersimpan di `transaction_costs`), ringkasan keuntungan per transaksi. |
 | Riwayat | Sort by waktu input (terbaru atas). Eye icon detail masuk/keluar, batch detail + invoice. |
-| Invoice | PDF landscape A4, Biaya Lain auto-fill, footnote *, brand custom, share WhatsApp. |
+| Invoice | PDF landscape A4, biaya ongkir auto-fill, nomor urut otomatis, share WhatsApp. |
 | Generator Story | Pricelist PNG 1080×1920px, auto-fill harga dari logammulia.com |
 | Harga Emas Hari Ini | Tabel harga & pergerakan naik/turun dari logammulia.com |
 | Auth | Login/daftar/profil via Clerk |
@@ -54,38 +54,16 @@ VITE_SUPABASE_URL=https://[dev-project].supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_...
 ```
 
-### 3. Database Migration
+### 3. Database Setup
 
-```sql
-CREATE TABLE IF NOT EXISTS public.transactions (
-  id uuid primary key default gen_random_uuid(),
-  user_id text not null,
-  type text not null check (type in ('masuk', 'keluar')),
-  category text not null check (category in ('logam_mulia', 'perhiasan')),
-  date timestamptz not null,
-  gramasi numeric not null, harga numeric not null,
-  nama_product text, no_seri text, nomer_ref text, karat text,
-  kode text, notes text, asal_barang text, source_id uuid, pembeli text,
-  batch_id uuid, created_at timestamptz default now()
-);
-ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.transactions;
+Jalankan `supabase/schema.sql` di Supabase SQL Editor untuk setup dari awal.
 
-CREATE TABLE IF NOT EXISTS public.invoices (
-  id uuid primary key default gen_random_uuid(),
-  user_id text not null, invoice_number text not null,
-  sequence_number int not null, transaction_ids text[] not null,
-  created_at timestamptz default now()
-);
-
-CREATE TABLE IF NOT EXISTS public.harga_emas (
-  id uuid primary key default gen_random_uuid(),
-  tanggal date not null, berat varchar(20) not null,
-  berat_gram numeric not null, harga_dasar bigint not null,
-  harga_pajak bigint not null, created_at timestamptz default now()
-);
-CREATE UNIQUE INDEX ON public.harga_emas (tanggal, berat);
-ALTER TABLE public.harga_emas DISABLE ROW LEVEL SECURITY;
+Untuk database yang sudah ada, jalankan migrations secara urut:
+```
+supabase/migrations/20260603_harga_emas.sql
+supabase/migrations/20260608_add_entry_type.sql
+supabase/migrations/20260609_add_transaction_costs.sql
+supabase/migrations/20260609_add_invoice_batch_id.sql
 ```
 
 ### 4. Jalankan
@@ -100,23 +78,24 @@ npm run dev
 
 | Metric | Formula |
 |--------|---------|
-| Keuntungan Ganti Emas | Σ harga jual Ganti Stok − Σ harga beli Ganti Stok |
-| Keuntungan HPP | Total Penjualan − HPP |
-| HPP (Harga Pokok Penjualan) | Σ harga beli semua terjual + Σ biaya jual keluar |
-| Total Penjualan | Σ harga jual keluar + Σ biaya jual (total dari customer) |
-| Total Modal | Semua masuk termasuk stok belum terjual |
-| Total Stok | Kumulatif masuk − keluar s/d akhir periode (tidak bisa minus) |
+| Keuntungan Ganti Stok | Gramasi-matching FIFO cross-period: setiap Ganti Stok dicocokkan keluar gramasi sama |
+| Keuntungan Buyback | item-level via source_id: harga jual − harga beli buyback |
+| Keuntungan Total Penjualan | Total Penjualan − HPP |
+| HPP | Σ harga beli (terjual) + Σ biaya operasional keluar |
+| Total Penjualan | Σ harga jual keluar |
+| Total Stok | Kumulatif masuk − keluar s/d akhir periode |
 | Total Aset | Stok tersedia × harga per gramasi dari logammulia.com |
 
 ### Jenis Pencatatan Barang Masuk LM
 
-| Jenis | Keterangan | Dampak Dashboard |
-|-------|-----------|-----------------|
-| **Ganti Stok** | Beli setelah jual, gramasi sama | Masuk Keuntungan Ganti Emas |
-| **Tambah Stok** | Beli untuk menambah stok | Masuk HPP |
+| Jenis | DB `entry_type` | Dampak Dashboard |
+|-------|----------------|-----------------|
+| **Tambah Stok** | `tambah_stok` | Masuk HPP |
+| **Ganti Stok** | `ganti_stok` | Masuk Keuntungan Ganti Stok |
+| **Buyback** | `buyback` | Masuk Keuntungan Buyback |
 
-### Biaya Jual
-Disimpan di `notes` per transaksi keluar: `biaya_jual:50000|ket:keterangan`. Hanya item pertama batch yang menyimpan biaya (tidak double-count). HPP mem-parse nilai ini otomatis.
+### Biaya Keluar
+Disimpan di tabel `transaction_costs` (type: `ongkir` atau `operasional`), linked ke transaksi keluar pertama per batch. HPP menggunakan biaya operasional. Ongkir ditampilkan di invoice.
 
 ### No Seri (Logam Mulia)
 - Wajib diisi, unik per stok aktif
