@@ -111,12 +111,11 @@ function Dashboard() {
 
   const sStock = summarize(stockTx);
 
-  const { hpp, totalBeliEmasTerjual, jualGantiStok, totalBiayaJualKeluar, countGantiKeluar, countGantiMasuk, totalGramasiTerjual, countTotalKeluar, countTotalMasuk } = useMemo(() => {
+  const { hpp, countGantiMasuk, masukGantiStokHarga, countTotalKeluar, countTotalMasuk } = useMemo(() => {
     const masukMap = new Map(tx.filter(t => t.type === "masuk").map(t => [t.id, t]));
-    let hppTotal = 0, beliEmas = 0, jualGS = 0, biayaJual = 0, gantiKeluar = 0, gramasiKeluar = 0;
+    let hppTotal = 0, biayaJual = 0;
     for (const t of filteredTx) {
       if (t.type !== "keluar") continue;
-      gramasiKeluar += t.gramasi;
       if (t.notes) {
         const opsTotal = [...t.notes.matchAll(/ops:(\d+):[^|]*/g)].reduce((s, m) => s + parseInt(m[1]), 0)
           || parseInt(t.notes.match(/biaya_ops:(\d+)/)?.[1] ?? t.notes.match(/biaya_jual:(\d+)/)?.[1] ?? "0") || 0;
@@ -127,28 +126,21 @@ function Dashboard() {
       }
       if (t.sourceId) {
         const masuk = masukMap.get(t.sourceId);
-        if (masuk) {
-          const isTambahStok = masuk.notes?.includes("entry_type:stok_awal");
-          hppTotal += masuk.harga;
-          if (!isTambahStok) {
-            beliEmas += masuk.harga;
-            jualGS += t.harga;
-            gantiKeluar++;
-          }
-        }
+        if (masuk) hppTotal += masuk.harga;
       }
     }
     // Ganti Stok masuk dalam periode filter
-    const gantiMasuk = filteredTx.filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal")).length;
+    const gantiMasukItems = filteredTx.filter(t => t.type === "masuk" && !t.notes?.includes("entry_type:stok_awal"));
+    const gantiMasukHarga = gantiMasukItems.reduce((sum, t) => sum + t.harga, 0);
     const totalKeluar = filteredTx.filter(t => t.type === "keluar").length;
     const totalMasuk  = filteredTx.filter(t => t.type === "masuk").length;
-    return { hpp: hppTotal, totalBeliEmasTerjual: beliEmas, jualGantiStok: jualGS, totalBiayaJualKeluar: biayaJual, countGantiKeluar: gantiKeluar, countGantiMasuk: gantiMasuk, totalGramasiTerjual: gramasiKeluar, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
+    return { hpp: hppTotal, countGantiMasuk: gantiMasukItems.length, masukGantiStokHarga: gantiMasukHarga, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
   }, [tx, filteredTx]);
 
   // Total Omzet = sum harga jual produk saja, tanpa ongkir dan biaya operasional
   const totalPenjualan = s.totalJual;
-  // Keuntungan Ganti Emas = harga jual Ganti Stok - harga beli Ganti Stok
-  const keuntunganBeliEmas = jualGantiStok - totalBeliEmasTerjual;
+  // Keuntungan Ganti Stok = total harga jual keluar − total harga beli masuk Ganti Stok (periode)
+  const keuntunganBeliEmas = totalPenjualan - masukGantiStokHarga;
   // Keuntungan Total Penjualan = Total Omzet - Total Modal Barang Terjual
   const keuntunganHPP = totalPenjualan - hpp;
 
@@ -310,7 +302,7 @@ function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
         <Stat label="Keuntungan Ganti Stok" value={formatIDR(keuntunganBeliEmas)} icon={TrendingUp}
           sub={`${countTotalKeluar} terjual · ${countGantiMasuk} masuk ganti stok`}
-          tooltip="Keuntungan dari transaksi Ganti Stok — total penjualan dikurangi harga beli emas yang diganti dan biaya jual." />
+          tooltip="Selisih total harga jual barang keluar dengan total harga beli barang masuk bertipe Ganti Stok dalam periode yang sama." />
         <Stat label="Keuntungan Total Penjualan" value={formatIDR(keuntunganHPP)} icon={TrendingUp}
           sub={`${countTotalKeluar} terjual · ${countTotalMasuk} barang masuk`}
           tooltip="Keuntungan dari transaksi Tambah Stok — total penjualan dikurangi Harga Pokok Penjualan (HPP) dan biaya jual." />
