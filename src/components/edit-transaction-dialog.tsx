@@ -62,8 +62,8 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
       });
     } else if (tx.category === "logam_mulia") {
       setEntryType(
-        tx.notes?.includes("entry_type:stok_awal") ? "stok_awal" :
-        tx.notes?.includes("entry_type:buyback")   ? "buyback" : "beli"
+        tx.entryType === "tambah_stok" ? "stok_awal" :
+        tx.entryType === "buyback"     ? "buyback"   : "beli"
       );
       setFields({
         namaProduct: tx.namaProduct ?? PRODUK_LM[0],
@@ -137,9 +137,9 @@ export function EditTransactionDialog({ tx, open, onClose }: Props) {
           noSeri: fields.noSeri.trim(), harga,
           nomerRef: fields.nomerRef.trim() || undefined,
           asalBarang: fields.asalBarang.trim() || undefined, date,
-          notes: entryType === "stok_awal" ? "entry_type:stok_awal"
-               : entryType === "buyback"   ? "entry_type:buyback"
-               : "",
+          entryType: entryType === "stok_awal" ? "tambah_stok"
+                   : entryType === "buyback"   ? "buyback"
+                   : "ganti_stok",
         });
       } else {
         const gramasi = parseFloat(fields.gramasi);

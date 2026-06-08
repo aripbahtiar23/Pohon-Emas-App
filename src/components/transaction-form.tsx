@@ -106,9 +106,9 @@ function MasukForm() {
         harga,
         nomerRef: lm.nomerRef || undefined,
         asalBarang: lm.asalBarang.trim() || undefined,
-        notes: lmEntryType === "stok_awal" ? "entry_type:stok_awal"
-             : lmEntryType === "buyback"   ? "entry_type:buyback"
-             : undefined,
+        entryType: lmEntryType === "stok_awal" ? "tambah_stok"
+                 : lmEntryType === "buyback"   ? "buyback"
+                 : "ganti_stok",
       });
       toast.success("Barang masuk dicatat");
       setLm({ ...lm, gramasi: "", noSeri: "", harga: "", nomerRef: "", asalBarang: "", tanggal: todayStr() });

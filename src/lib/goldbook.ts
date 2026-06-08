@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 
-export type Category = "logam_mulia" | "perhiasan";
-export type TxType   = "masuk" | "keluar";
+export type Category   = "logam_mulia" | "perhiasan";
+export type TxType     = "masuk" | "keluar";
+export type EntryType  = "tambah_stok" | "ganti_stok" | "buyback";
 
 export const PRODUK_LM = [
   "UBS",
@@ -15,6 +16,7 @@ export interface Transaction {
   id: string;
   type: TxType;
   category: Category;
+  entryType?: EntryType;
   date: string;
   createdAt?: string;
   namaProduct?: string;
@@ -35,10 +37,20 @@ export interface Transaction {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dbToTx(row: any): Transaction {
+  // Baca entry_type dari kolom; fallback ke notes parsing untuk data lama
+  const entryType: EntryType | undefined = row.entry_type ?? (
+    row.type === "masuk"
+      ? row.notes?.includes("entry_type:stok_awal") ? "tambah_stok"
+        : row.notes?.includes("entry_type:buyback")  ? "buyback"
+        : "ganti_stok"
+      : undefined
+  );
+
   return {
     id:          row.id,
     type:        row.type,
     category:    row.category,
+    entryType,
     date:        row.date,
     createdAt:   row.created_at      ?? undefined,
     gramasi:     Number(row.gramasi),
@@ -61,6 +73,7 @@ function txToDb(userId: string, tx: Omit<Transaction, "id">) {
     user_id:      userId,
     type:         tx.type,
     category:     tx.category,
+    entry_type:   tx.entryType   ?? null,
     date:         tx.date,
     gramasi:      tx.gramasi,
     harga:        tx.harga,
@@ -120,6 +133,7 @@ export async function patchTx(
   const dbPatch: Record<string, unknown> = {};
   if (patch.type         !== undefined) dbPatch.type         = patch.type;
   if (patch.category     !== undefined) dbPatch.category     = patch.category;
+  if (patch.entryType    !== undefined) dbPatch.entry_type   = patch.entryType;
   if (patch.date         !== undefined) dbPatch.date         = patch.date;
   if (patch.gramasi      !== undefined) dbPatch.gramasi      = patch.gramasi;
   if (patch.harga        !== undefined) dbPatch.harga        = patch.harga;

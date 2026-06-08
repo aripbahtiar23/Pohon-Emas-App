@@ -126,7 +126,7 @@ function Dashboard() {
         if (masuk) {
           hppTotal += masuk.harga;
           // Keuntungan Buyback: item-level via sourceId
-          if (masuk.notes?.includes("entry_type:buyback")) {
+          if (masuk.entryType === "buyback") {
             buybackProfit += t.harga - masuk.harga;
             buybackKeluar++;
           }
@@ -142,8 +142,8 @@ function Dashboard() {
 
     const allGantiMasuk = tx
       .filter(t => t.type === "masuk"
-        && !t.notes?.includes("entry_type:stok_awal")
-        && !t.notes?.includes("entry_type:buyback")
+        && t.entryType !== "tambah_stok"
+        && t.entryType !== "buyback"
         && catFilter(t))
       .sort((a, b) => new Date(a.createdAt ?? a.date).getTime() - new Date(b.createdAt ?? b.date).getTime());
 
@@ -162,8 +162,8 @@ function Dashboard() {
     }
 
     const gantiMasukInFilter = filteredTx.filter(t => t.type === "masuk"
-      && !t.notes?.includes("entry_type:stok_awal")
-      && !t.notes?.includes("entry_type:buyback"));
+      && t.entryType !== "tambah_stok"
+      && t.entryType !== "buyback");
     const totalKeluar = filteredTx.filter(t => t.type === "keluar").length;
     const totalMasuk  = filteredTx.filter(t => t.type === "masuk").length;
     return { hpp: hppTotal, keuntunganGantiStok: gsProfit, keuntunganBuyback: buybackProfit, countGantiMasuk: gantiMasukInFilter.length, countBuybackKeluar: buybackKeluar, countTotalKeluar: totalKeluar, countTotalMasuk: totalMasuk };
