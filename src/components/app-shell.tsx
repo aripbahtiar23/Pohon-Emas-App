@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useRouter } from "@tanstack/react-router";
-import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, TreeDeciduous, Menu, X, Wand2, ChevronLeft, ChevronRight, User, TrendingUp } from "lucide-react";
+import { LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, TreeDeciduous, Menu, X, Wand2, ChevronLeft, ChevronRight, User, TrendingUp, MessageSquarePlus } from "lucide-react";
 import { UserButton, useUser } from "@clerk/clerk-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +31,7 @@ const nav = [
   { to: "/keluar", label: "Barang Keluar",        short: "Keluar",  icon: ArrowUpFromLine },
   { to: "/harga",  label: "Harga Emas Hari Ini", short: "Harga",   icon: TrendingUp },
   { to: "/story",  label: "Generator Story",     short: "Story",   icon: Wand2 },
+  { to: "/feedback", label: "Feedback & Masukan", short: "Feedback", icon: MessageSquarePlus },
 ];
 
 function UserArea({ collapsed }: { collapsed: boolean }) {
@@ -52,10 +53,10 @@ function UserArea({ collapsed }: { collapsed: boolean }) {
         userProfileUrl="/profile"
         userProfileMode="navigation"
       />
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-sidebar-foreground truncate">{user.fullName || user.username || "Pengguna"}</p>
+      <Link to="/profile" className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-sidebar-foreground truncate hover:underline">{user.fullName || user.username || "Pengguna"}</p>
         <p className="text-[11px] text-sidebar-foreground/50 truncate">{user.primaryEmailAddress?.emailAddress}</p>
-      </div>
+      </Link>
     </div>
   );
 }
