@@ -73,12 +73,14 @@ function Dashboard() {
   const { userId } = useAuth();
   const { tx } = useTransactions();
 
-  const [filterYear, setFilterYear]   = useState("all");
-  const [filterMonth, setFilterMonth] = useState("all");
+  // Default filter: bulan berjalan
+  const [filterYear, setFilterYear]   = useState(() => String(new Date().getFullYear()));
+  const [filterMonth, setFilterMonth] = useState(() => String(new Date().getMonth() + 1));
   const [filterCat, setFilterCat]     = useState<"all"|"logam_mulia"|"perhiasan">("all");
 
+  // Tahun berjalan selalu ada di opsi, walau belum ada transaksi tahun ini
   const availableYears = useMemo(() =>
-    Array.from(new Set(tx.map((t) => new Date(t.date).getFullYear()))).sort((a, b) => b - a),
+    Array.from(new Set([new Date().getFullYear(), ...tx.map((t) => new Date(t.date).getFullYear())])).sort((a, b) => b - a),
   [tx]);
 
   const filteredTx = useMemo(() => {
